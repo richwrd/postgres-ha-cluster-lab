@@ -24,10 +24,9 @@ restapi:
 # ═══════════════════════════════════════════════════════════════════
 # --- DISTRIBUTED CONSENSUS STORE (DCS) ---
 # O cérebro do cluster.
-# etcd:
-#   hosts: etcd:2379
-# A configuração do DCS agora é feita via variáveis de ambiente no docker-compose.yml.
-
+etcd3:
+  endpoints:
+    - etcd:2379
 
 # ═══════════════════════════════════════════════════════════════════
 # --- BOOTSTRAP ---

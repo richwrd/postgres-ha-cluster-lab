@@ -14,6 +14,8 @@ services:
       - "${ETCD_HOST_PORT}:2379"
     volumes:
       - etcd-data:/bitnami/etcd
+    networks:
+      - postgresql_network
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health", "--endpoints=http://127.0.0.1:2379"]
       interval: 10s
@@ -22,10 +24,9 @@ services:
       start_period: 10s
 
   template-patroni-service: &patroni-service
+    image: patroni-postgres:latest
     build:
       context: ./infra/patroni-postgres
-    environment:
-      - PATRONI_ETCD_HOSTS=${ETCD_NAME}:2379
     networks:
       - postgresql_network
     depends_on:
