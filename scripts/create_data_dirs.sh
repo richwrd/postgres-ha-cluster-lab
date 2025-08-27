@@ -43,10 +43,19 @@ create_component_directories() {
     fi
   done
 }
+
 set_directory_permissions() {
   echo "Setting secure permissions (700) for data directories..."
   chmod 700 "$ETCD_DATA_PATH" "$PG1_DATA_PATH" "$PG2_DATA_PATH" "$PG3_DATA_PATH"
   echo "- Permissions set successfully"
+}
+
+set_postgres_ownership() {
+  echo "Setting ownership (999:999) for PostgreSQL data directories..."
+  sudo chown -R 999:999 "$PG1_DATA_PATH"
+  sudo chown -R 999:999 "$PG2_DATA_PATH" 
+  sudo chown -R 999:999 "$PG3_DATA_PATH"
+  echo "- Ownership set successfully"
 }
 
 display_summary() {
@@ -63,6 +72,7 @@ main() {
   create_base_directory
   create_component_directories
   set_directory_permissions
+  set_postgres_ownership
   display_summary
 }
 

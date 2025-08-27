@@ -1,21 +1,29 @@
+# Cluster PostgreSQL com Patroni para Alta Disponibilidade (HA)
+# Autor: Eduardo Richard
+# Versão: v2.0 (2025)
+
+# ═══════════════════════════════════════════════════════════════════
+# SERVIÇOS
+# ═══════════════════════════════════════════════════════════════════
 services:
+  # --- ETCD (Distributed Configuration Store) ---
   etcd:
     image: bitnami/etcd:3.5
     hostname: ${ETCD_NAME}
     container_name: ${ETCD_NAME}
     environment:
       # Permite que o etcd rode sem autenticação TLS, ideal para ambientes de desenvolvimento.
-      - ALLOW_NONE_AUTHENTICATION=yes
+      ALLOW_NONE_AUTHENTICATION: yes
       # Endereço que os clientes (Patroni) usarão para se conectar. 'etcd' é o hostname do serviço.
-      - ETCD_ADVERTISE_CLIENT_URLS=http://${ETCD_NAME}:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://${ETCD_NAME}:2379
       # Onde o etcd deve escutar por conexões de clientes. 0.0.0.0 significa todas as interfaces.
-      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
     ports:
       - "${ETCD_HOST_PORT}:2379"
     volumes:
       - etcd-data:/bitnami/etcd
     networks:
-      - postgresql_network
+      - pg-ha-network
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health", "--endpoints=http://127.0.0.1:2379"]
       interval: 10s
@@ -23,12 +31,14 @@ services:
       retries: 3
       start_period: 10s
 
+    
+  # --- PATRONI POSTGRES ANCORA ---
   template-patroni-service: &patroni-service
-    image: patroni-postgres:latest
+    image: patroni-postgres:base
     build:
       context: ./infra/patroni-postgres
     networks:
-      - postgresql_network
+      - pg-ha-network
     depends_on:
       etcd:
         condition: service_healthy
@@ -38,63 +48,75 @@ services:
       timeout: 5s
       retries: 3
 
+
+  # --- PATRONI POSTGRES NODES ---
   patroni-postgres-1:
     <<: *patroni-service
     container_name: ${PG1_NAME}
     hostname: ${PG1_NAME}
+
     environment:
-      - PATRONI_NAME=${PG1_NAME}
-      - PATRONI_RESTAPI_URL=http://${PG1_NAME}:8008
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - REPLICATION_USER=${REPLICATION_USER}
-      - REPLICATION_PASSWORD=${REPLICATION_PASSWORD}
-      - RESTAPI_USER=${RESTAPI_USER}
-      - RESTAPI_PASSWORD=${RESTAPI_PASSWORD}
+      PATRONI_NAME: ${PG1_NAME}
+      PATRONI_RESTAPI_URL: http://${PG1_NAME}:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG1_NAME}:5432
+      
+    env_file:
+      - ./infra/patroni-postgres/config/.patroni.env
+
     ports:
-      - "${PG1_HOST_PORT}:5432"
       - "${PG1_API_HOST_PORT}:8008"
+      - "${PG1_HOST_PORT}:5432"
+
     volumes:
       - patroni-postgres-1-data:/var/lib/postgresql/data/pgdata
 
+
+  # --- PATRONI POSTGRES NODES ---
   patroni-postgres-2:
     <<: *patroni-service
     container_name: ${PG2_NAME}
     hostname: ${PG2_NAME}
+  
     environment:
-      - PATRONI_NAME=${PG2_NAME}
-      - PATRONI_RESTAPI_URL=http://${PG2_NAME}:8008
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - REPLICATION_USER=${REPLICATION_USER}
-      - REPLICATION_PASSWORD=${REPLICATION_PASSWORD}
-      - RESTAPI_USER=${RESTAPI_USER}
-      - RESTAPI_PASSWORD=${RESTAPI_PASSWORD}
+      PATRONI_NAME: ${PG2_NAME}
+      PATRONI_RESTAPI_URL: http://${PG2_NAME}:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG2_NAME}:5432
+    
+    env_file:
+      - ./infra/patroni-postgres/config/.patroni.env
+
     ports:
-      - "${PG2_HOST_PORT}:5432"
       - "${PG2_API_HOST_PORT}:8008"
+      - "${PG2_HOST_PORT}:5432"
     volumes:
       - patroni-postgres-2-data:/var/lib/postgresql/data/pgdata
 
+
+  # --- PATRONI POSTGRES NODES ---
   patroni-postgres-3:
     <<: *patroni-service
     container_name: ${PG3_NAME}
     hostname: ${PG3_NAME}
+
     environment:
-      - PATRONI_NAME=${PG3_NAME}
-      - PATRONI_RESTAPI_URL=http://${PG3_NAME}:8008
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - REPLICATION_USER=${REPLICATION_USER}
-      - REPLICATION_PASSWORD=${REPLICATION_PASSWORD}
-      - RESTAPI_USER=${RESTAPI_USER}
-      - RESTAPI_PASSWORD=${RESTAPI_PASSWORD}
+      PATRONI_NAME: ${PG3_NAME}
+      PATRONI_RESTAPI_URL: http://${PG3_NAME}:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG3_NAME}:5432
+      
+    env_file:
+      - ./infra/patroni-postgres/config/.patroni.env
+ 
     ports:
-      - "${PG3_HOST_PORT}:5432"
       - "${PG3_API_HOST_PORT}:8008"
+      - "${PG3_HOST_PORT}:5432"
     volumes:
       - patroni-postgres-3-data:/var/lib/postgresql/data/pgdata
 
+
+
+# ═══════════════════════════════════════════════════════════════════
+# VOLUMES
+# ═══════════════════════════════════════════════════════════════════
 volumes:
   etcd-data:
       name: etcd-data
@@ -128,7 +150,10 @@ volumes:
         o: bind
         device: ${PG3_DATA_PATH}
 
+# ═══════════════════════════════════════════════════════════════════
+# NETWORKS
+# ═══════════════════════════════════════════════════════════════════
 networks:
-  postgresql_network:
+  pg-ha-network:
     name: ${NETWORK_NAME}
     driver: bridge

@@ -16,10 +16,12 @@ RUN python3 -m venv /opt/patroni \
 
 ENV PATH="/opt/patroni/bin:$PATH"
 
-COPY config/patroni.yaml /etc/patroni.yaml
+COPY config/patroni.yml /etc/patroni.yml
 
 EXPOSE 5432 8008
 
 USER postgres
 
-CMD ["patroni", "/etc/patroni.yaml"]
+ENTRYPOINT ["patroni"]
+
+CMD ["/etc/patroni.yml"]

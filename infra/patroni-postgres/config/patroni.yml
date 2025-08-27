@@ -1,0 +1,121 @@
+# Universal Patroni Configuration Template
+# by: Eduardo Richard
+
+# ═══════════════════════════════════════════════════════════════════
+# --- ESCOPO E NOMES ---
+# O nome do cluster é lido do ambiente, com "pg-cluster" como padrão.
+scope: ${PATRONI_SCOPE:-pg-cluster}
+
+# Nome único deste nó no cluster (ex: patroni-postgres-1).
+# Injetado via variável de ambiente PATRONI_NAME no docker-compose.yml.
+name: ${PATRONI_NAME}
+
+# ═══════════════════════════════════════════════════════════════════
+# --- API REST ---
+# Usada pelo patronictl para gerenciar o cluster e para health checks.
+restapi:
+  listen: "0.0.0.0:8008"
+
+  connect_address: ${PATRONI_RESTAPI_URL}
+  authentication:
+    username: ${PATRONI_RESTAPI_USERNAME}
+    password: ${PATRONI_RESTAPI_PASSWORD}
+
+# ═══════════════════════════════════════════════════════════════════
+# --- DISTRIBUTED CONSENSUS STORE (DCS) ---
+# O cérebro do cluster que guarda o estado (quem é o líder, etc.).
+# Aqui usamos o etcd, mas Patroni também suporta Consul e Zookeeper.
+
+etcd3:
+  hosts:
+    - ${PATRONI_ETCD3_HOSTS}
+
+# ═══════════════════════════════════════════════════════════════════
+# --- CONFIGURAÇÃO DO POSTGRESQL ---
+# Patroni gerencia o postgresql.conf com base nos parâmetros desta seção.
+# ═══════════════════════════════════════════════════════════════════
+postgresql:
+  listen: "0.0.0.0:5432"
+  connect_address: ${PATRONI_POSTGRESQL_CONNECT_ADDRESS}
+  data_dir: /var/lib/postgresql/data/pgdata
+
+  # Autenticação
+  authentication:
+    superuser:
+      username: ${PATRONI_SUPERUSER_USERNAME}
+      password: ${PATRONI_SUPERUSER_PASSWORD}
+    replication:
+      username: ${PATRONI_REPLICATION_USERNAME}
+      password: ${PATRONI_REPLICATION_PASSWORD}
+
+  # Parâmetros que serão escritos no postgresql.conf.
+  parameters:
+    # --- Segurança e Autenticação ---
+    password_encryption: "scram-sha-256"
+    ssl: "off"  # Desabilita SSL para simplificar a replicação
+
+    # --- Replicação e HA ---
+    wal_level: replica
+    hot_standby: "on"
+    max_wal_senders: 10
+    max_replication_slots: 10
+    
+    # --- Gerenciamento de WAL e Checkpoints ---
+    archive_mode: "off" # Ideal manter "off" até integrar com uma ferramenta de backup como pgBackRest.
+    archive_command: "/bin/true"
+
+    # --- Tuning de Performance (Valores de exemplo, ajuste conforme seu ambiente) ---
+    shared_buffers: 1GB             # Ajuste para ~25% da memória do contêiner.
+    effective_cache_size: 3GB       # Ajuste para ~75% da memória.
+    work_mem: 64MB
+    maintenance_work_mem: 256MB
+    checkpoint_timeout: 15min
+    checkpoint_completion_target: 0.9
+    random_page_cost: 1.1           # Otimizado para SSDs.
+    effective_io_concurrency: 200   # Otimizado para SSDs.
+
+# ═══════════════════════════════════════════════════════════════════
+# --- BOOTSTRAP ---
+# Usado SOMENTE para criar o cluster do zero (no primeiro nó).
+# ═══════════════════════════════════════════════════════════════════
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+  
+  # Opções para o comando initdb.
+  initdb:
+    - encoding: "UTF8"
+    - data-checksums
+  
+  # Regras de acesso iniciais que serão escritas no pg_hba.conf.
+  pg_hba:
+    # Permite que qualquer usuário se conecte de qualquer IP (útil em Docker).
+    - host all all 0.0.0.0/0 scram-sha-256
+    # Permite conexões de replicação sem SSL do usuário replicator
+    - host replication replicator 0.0.0.0/0 trust
+
+# ═══════════════════════════════════════════════════════════════════
+# --- LOGS ---
+# Simplificado para logar no stdout (saída padrão), ideal para contêineres.
+# ═══════════════════════════════════════════════════════════════════
+log:
+  level: INFO
+  format: "%(asctime)s %(levelname)s: %(message)s"
+
+# ═══════════════════════════════════════════════════════════════════
+# --- WATCHDOG ---
+# ═══════════════════════════════════════════════════════════════════
+watchdog:
+  mode: off  # Desabilitado por padrão em contêineres
+
+# ═══════════════════════════════════════════════════════════════════
+# --- TAGS ---
+# ═══════════════════════════════════════════════════════════════════
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
