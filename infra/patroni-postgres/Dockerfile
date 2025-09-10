@@ -1,5 +1,7 @@
 FROM postgres:17
 
+ARG PATRONI_VERSION=4.0.6
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-venv \
@@ -12,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python3 -m venv /opt/patroni \
     && /opt/patroni/bin/pip install --upgrade pip \
     && /opt/patroni/bin/pip install "psycopg[binary]" \
-    && /opt/patroni/bin/pip install "patroni[etcd]==4.0.6"
+    && /opt/patroni/bin/pip install "patroni[etcd]==${PATRONI_VERSION}"
 
 ENV PATH="/opt/patroni/bin:$PATH"
 

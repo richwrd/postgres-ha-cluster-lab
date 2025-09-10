@@ -31,7 +31,6 @@ services:
       retries: 3
       start_period: 10s
 
-    
   # --- PATRONI POSTGRES ANCORA ---
   template-patroni-service: &patroni-service
     image: patroni-postgres:base
@@ -47,7 +46,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-
 
   # --- PATRONI POSTGRES NODES ---
   patroni-postgres-1:
@@ -113,6 +111,31 @@ services:
       - patroni-postgres-3-data:/var/lib/postgresql/data/pgdata
 
 
+  # # --- PGPOOL-II (Connection Pooler & Load Balancer) ---
+  # pgpool:
+  #   container_name: ${PGPOOL_NAME}
+  #   hostname: ${PGPOOL_NAME}
+  #   build: 
+  #     context: ./infra/pgpool # Aponta para o diretório com o Dockerfile do Pgpool
+  #   ports:
+  #     # A porta 9999 é a porta padrão do Pgpool para conexões de clientes
+  #     - "${PGPOOL_HOST_PORT}:5432"
+  #     # A porta 9898 é a porta padrão para o protocolo PCP (Pgpool Communication Protocol)
+  #     - "${PGPOOL_PCP_HOST_PORT}:9898"
+  #   depends_on:
+  #     patroni-postgres-1:
+  #       condition: service_healthy
+  #     patroni-postgres-2:
+  #       condition: service_healthy
+  #     patroni-postgres-3:
+  #       condition: service_healthy
+  #   networks:
+  #     - pg-ha-network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U postgres"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
 
 # ═══════════════════════════════════════════════════════════════════
 # VOLUMES

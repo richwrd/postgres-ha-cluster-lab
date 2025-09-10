@@ -1,6 +1,6 @@
 #!/bin/bash
-# Script to create data directories for PostgreSQL HA Cluster components
-# by: richwrd
+# Script para criar diretórios de dados para os componentes do PostgreSQL HA Cluster
+# por: richwrd
 
 set -e
 
@@ -8,7 +8,7 @@ load_env_file() {
   if [ -f "../.env" ]; then
     source "../.env"
   else
-    echo "Error: .env file not found in parent directory."
+    echo "❌ Erro: Arquivo .env não encontrado no diretório pai."
     exit 1
   fi
 }
@@ -16,54 +16,59 @@ load_env_file() {
 validate_env_vars() {
   for var in DATA_BASE_PATH ETCD_DATA_PATH PG1_DATA_PATH PG2_DATA_PATH PG3_DATA_PATH; do
     if [ -z "${!var}" ]; then
-      echo "Error: $var is not defined in .env file."
+      echo "❌ Erro: A variável $var não está definida no arquivo .env."
       exit 1
     fi
   done
 }
 
 create_base_directory() {
-  echo "Creating base data directory for PostgreSQL HA Cluster..."
+  echo ""
+  echo "📂 Criando diretório base para o PostgreSQL HA Cluster..."
   if [ -d "$DATA_BASE_PATH" ]; then
-    echo "- Base directory already exists: $DATA_BASE_PATH"
+    echo "✅ - Diretório base já existe: $DATA_BASE_PATH"
   else
     mkdir -p "$DATA_BASE_PATH"
-    echo "- Created base directory: $DATA_BASE_PATH"
+    echo "✅ - Diretório base criado: $DATA_BASE_PATH"
   fi
 }
 
 create_component_directories() {
-  echo "Creating data directories for PostgreSQL HA Cluster components..."
+  echo ""
+  echo "📂 Criando diretórios de dados para os componentes do PostgreSQL HA Cluster..."
   for dir in "$ETCD_DATA_PATH" "$PG1_DATA_PATH" "$PG2_DATA_PATH" "$PG3_DATA_PATH"; do
     if [ -d "$dir" ]; then
-      echo "- Directory already exists: $dir"
+      echo "✅ - Diretório já existe: $dir"
     else
       mkdir -p "$dir"
-      echo "- Created directory: $dir"
+      echo "✅ - Diretório criado: $dir"
     fi
   done
 }
 
 set_directory_permissions() {
-  echo "Setting secure permissions (700) for data directories..."
+  echo ""
+  echo "🔒 Definindo permissões seguras (700) para os diretórios de dados..."
   chmod 700 "$ETCD_DATA_PATH" "$PG1_DATA_PATH" "$PG2_DATA_PATH" "$PG3_DATA_PATH"
-  echo "- Permissions set successfully"
+  echo "✅ - Permissões definidas com sucesso"
 }
 
 set_postgres_ownership() {
-  echo "Setting ownership (999:999) for PostgreSQL data directories..."
+  echo ""
+  echo "👤 Definindo propriedade (999:999) para os diretórios de dados do PostgreSQL..."
   sudo chown -R 999:999 "$PG1_DATA_PATH"
-  sudo chown -R 999:999 "$PG2_DATA_PATH" 
+  sudo chown -R 999:999 "$PG2_DATA_PATH"
   sudo chown -R 999:999 "$PG3_DATA_PATH"
-  echo "- Ownership set successfully"
+  echo "✅ - Propriedade definida com sucesso"
 }
 
 display_summary() {
-  echo "Data directories created successfully:"
-  echo "- ETCD: $ETCD_DATA_PATH"
-  echo "- Postgres 1: $PG1_DATA_PATH"
-  echo "- Postgres 2: $PG2_DATA_PATH" 
-  echo "- Postgres 3: $PG3_DATA_PATH"
+  echo ""
+  echo "📋 Resumo: Diretórios de dados criados com sucesso:"
+  echo "✅ - ETCD: $ETCD_DATA_PATH"
+  echo "✅ - Postgres 1: $PG1_DATA_PATH"
+  echo "✅ - Postgres 2: $PG2_DATA_PATH"
+  echo "✅ - Postgres 3: $PG3_DATA_PATH"
 }
 
 main() {

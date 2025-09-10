@@ -1,0 +1,44 @@
+# ═══════════════════════════════════════════════════════════════════
+# Docker Compose para Pgpool-II com Configuração Externalizada
+# Autor: Eduardo Richard
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  pgpool:
+    container_name: ${PGPOOL_NAME:-pgpool}
+    hostname: ${PGPOOL_NAME:-pgpool}
+    build:
+      context: ./infra/pgpool
+    restart: unless-stopped
+    entrypoint: /opt/pgpool/bin/scripts/entrypoint.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pcp_node_count -h localhost -p 9898 -U pcpuser --no-password >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    volumes:
+      - ./infra/pgpool/scripts:/opt/pgpool/bin/scripts:ro
+
+      - ./infra/pgpool/config/pgpool.template.conf:/etc/pgpool2/pgpool.template.conf:ro
+      - ./infra/pgpool/config/pcp.conf:/opt/pgpool/etc/pcp.conf:ro
+      - ./infra/pgpool/config/pool_hba.conf:/opt/pgpool/etc/pool_hba.conf:ro
+
+    env_file:
+      - ./infra/pgpool/config/.pgpool.env
+
+    ports:
+      - "${PGPOOL_HOST_PORT:-5432}:5432"
+      - "${PGPOOL_PCP_HOST_PORT:-9898}:9898"
+      
+    networks:
+      - pg-ha-network
+
+# ═══════════════════════════════════════════════════════════════════
+# NETWORKS
+# ═══════════════════════════════════════════════════════════════════
+networks:
+  pg-ha-network:
+    name: pg-ha-network
+    driver: bridge
