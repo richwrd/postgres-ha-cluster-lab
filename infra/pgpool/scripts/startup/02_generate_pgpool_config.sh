@@ -1,9 +1,14 @@
 #!/bin/sh
 set -e
 
-# Caminhos para os scripts helpers
-FIND_ENDPOINT_HELPER="/opt/pgpool/bin/scripts/helpers/find_active_patroni_endpoint.sh"
-GENERATE_CONFIG_HELPER="/opt/pgpool/bin/scripts/helpers/generate_backend_config.sh"
+# --- Importações ---
+# Importar configurações centralizadas primeiro
+. "/opt/pgpool/bin/scripts/lib/env.sh"
+
+# Importar bibliotecas necessárias
+. "${LIB_DIR}/logging.sh"
+. "${LIB_DIR}/patroni_operations.sh"
+. "${LIB_DIR}/config_generator.sh"
 
 PGPOOL_CONFIG_FILE="/opt/pgpool/etc/pgpool.conf"
 PGPOOL_CONFIG_TEMPLATE="/etc/pgpool2/pgpool.template.conf"
@@ -13,7 +18,7 @@ echo "⚙️  Iniciando geração da configuração do Pgpool-II..."
 # ═══════════════════════════════════════════════════════════════════
 # Etapa 1: Encontrar um endpoint ativo do Patroni
 echo "Buscando um endpoint ativo do Patroni..."
-ACTIVE_ENDPOINT=$(sh "${FIND_ENDPOINT_HELPER}")
+ACTIVE_ENDPOINT=$(find_active_patroni_endpoint)
 echo "✅ Usando o endpoint ativo: ${ACTIVE_ENDPOINT}"
 
 # ═══════════════════════════════════════════════════════════════════
@@ -22,10 +27,9 @@ echo "Buscando dados do cluster..."
 CLUSTER_INFO=$(curl -s "${ACTIVE_ENDPOINT}/cluster")
 
 # ═══════════════════════════════════════════════════════════════════
-# Etapa 3: Chamar o novo helper para gerar a configuração dos backends
+# Etapa 3: Gerar a configuração dos backends usando a biblioteca consolidada
 echo "Processando dados do cluster para gerar configuração de backend..."
-# O 'echo' passa o JSON para a entrada padrão (stdin) do nosso novo helper
-BACKEND_CONFIG=$(echo "${CLUSTER_INFO}" | sh "${GENERATE_CONFIG_HELPER}")
+BACKEND_CONFIG=$(echo "$CLUSTER_INFO" | generate_backend_config)
 
 if [ -z "$BACKEND_CONFIG" ]; then
   echo "🚨 Erro: A configuração de backend gerada está vazia."

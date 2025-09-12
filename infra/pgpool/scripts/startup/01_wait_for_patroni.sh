@@ -1,17 +1,22 @@
 #!/bin/sh
 # ------------------------------------------------------------------------------------
-# SCRIPT: 01-wait-for-patroni.sh
+# SCRIPT: 01_wait_for_patroni.sh
 # Propósito: Aguarda até que pelo menos um nó do cluster Patroni esteja acessível.
 # ------------------------------------------------------------------------------------
 set -e
 
-HELPER_SCRIPT="/opt/pgpool/bin/scripts/helpers/find_active_patroni_endpoint.sh"
+# --- Importações ---
+# Importar configurações centralizadas primeiro
+. "/opt/pgpool/bin/scripts/lib/env.sh"
+
+# Importar bibliotecas necessárias
+. "${LIB_DIR}/logging.sh"
+. "${LIB_DIR}/patroni_operations.sh"
 
 echo "⏳ Aguardando a API de qualquer nó do Patroni ficar disponível..."
 
-# Chama o script helper em loop. O '>/dev/null' descarta a saída de sucesso,
-# pois só nos importamos se o script sai com código 0 (sucesso) ou não.
-while ! sh "${HELPER_SCRIPT}" >/dev/null; do
+# Usar a função consolidada em loop
+while ! find_active_patroni_endpoint >/dev/null 2>&1; do
   echo "Nenhum nó do Patroni respondeu. Tentando novamente em 5 segundos..."
   sleep 5
 done

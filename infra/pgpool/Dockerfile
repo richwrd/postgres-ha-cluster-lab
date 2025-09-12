@@ -9,7 +9,8 @@
 
 FROM debian:bullseye-slim
 
-ARG PGPOOL_VERSION=4.6.3
+#Exemplo: 4.6.3 -> 4_6_3
+ARG PGPOOL_VERSION=4_6_3
 ARG PG_MAJOR=17
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -26,22 +27,37 @@ RUN apt-get update && \
         ca-certificates \
         gnupg \
         netcat-openbsd \
-        jq && \
+        jq \
+        gosu \
+        autoconf \
+        automake \
+        libtool \
+        flex \
+        bison && \
     rm -rf /var/lib/apt/lists/*
 
 # --- Etapa 2: Download, Compilação e Instalação do Pgpool-II ---
-# Baixa o código-fonte, compila e o instala no sistema.
-# O uso de --chown=root:root no tar é uma boa prática de segurança.
-RUN curl -sSL "https://www.pgpool.net/download.php?f=pgpool-II-${PGPOOL_VERSION}.tar.gz" -o pgpool-II.tar.gz && \
+# Baixa o código-fonte do GitHub oficial.
+# Usando GitHub releases para maior confiabilidade e disponibilidade.
+RUN curl -fsSL -o pgpool-II.tar.gz \
+        "https://github.com/pgpool/pgpool2/archive/refs/tags/V${PGPOOL_VERSION}.tar.gz" && \
+    echo "Download concluído, extraindo arquivo..." && \
     tar -xzf pgpool-II.tar.gz && \
     rm pgpool-II.tar.gz && \
-    cd pgpool-II-${PGPOOL_VERSION} && \
+    echo "Listando diretórios extraídos..." && \
+    ls -la && \
+    echo "Entrando no diretório pgpool2-${PGPOOL_VERSION}..." && \
+    cd pgpool2-${PGPOOL_VERSION} && \
+    echo "Gerando script de configuração..." && \
+    autoreconf -fiv && \
+    echo "Configurando build..." && \
     ./configure --prefix=/opt/pgpool --without-readline && \
+    echo "Compilando..." && \
     make V=1 && \
     make && \
     make install && \
     cd .. && \
-    rm -rf pgpool-II-${PGPOOL_VERSION}
+    rm -rf pgpool2-${PGPOOL_VERSION}
 
 # --- Etapa 3: Instalação do Cliente PostgreSQL ---
 # Adiciona o repositório oficial do PostgreSQL e instala o cliente,
@@ -61,8 +77,11 @@ RUN apt-get purge -y --auto-remove build-essential libpq-dev libssl-dev && \
     useradd --system --create-home --home-dir /home/pgpool --gid pgpool pgpool && \
     chown -R pgpool:pgpool /opt/pgpool
 
-USER pgpool
+# Gosu é uma ferramenta que permite executar processos como outro usuário.
+# Posteriormente, no entrypoint.sh, usaremos o gosu para iniciar o Pgpool-II como pgpool.
+# Isso é uma prática recomendada de segurança, evitando a execução como root.
+# USER pgpool
 
 EXPOSE 5432 9898
 
-CMD ["/usr/local/bin/pgpool", "-n"]
+CMD ["/opt/pgpool/bin/pgpool", "-n", "-f", "/opt/pgpool/etc/pgpool.conf"]
