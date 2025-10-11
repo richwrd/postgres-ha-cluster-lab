@@ -4,8 +4,7 @@
 # Autor: Eduardo Richard
 
 # Configuração do arquivo Docker Compose
-COMPOSE_FILE="${COMPOSE_FILE:-./docker-compose.pgpool-test.yaml}"
-SERVICE_NAME="${SERVICE_NAME:-pgpool}"
+COMPOSE_FILE="${COMPOSE_FILE:-./docker-compose.etcd.yaml}"
 
 echo "🔧 Script de Teste de Containers"
 echo "================================"
@@ -15,29 +14,28 @@ show_help() {
     echo "Uso: $0 [OPÇÃO]"
     echo ""
     echo "OPÇÕES:"
-    echo "  build     - Apenas fazer o build da imagem"
-    echo "  run       - Build e executar o container"
-    echo "  stop      - Parar o container"
-    echo "  clean     - Parar e remover container/imagem"
-    echo "  logs      - Mostrar logs do container"
+    echo "  build     - Apenas fazer o build das imagens"
+    echo "  run       - Build e executar os containers"
+    echo "  stop      - Parar os containers"
+    echo "  clean     - Parar e remover containers/imagens"
+    echo "  logs      - Mostrar logs dos containers"
     echo "  help      - Mostrar esta ajuda"
     echo ""
     echo "VARIÁVEIS DE AMBIENTE:"
     echo "  COMPOSE_FILE  - Arquivo docker-compose (padrão: $COMPOSE_FILE)"
-    echo "  SERVICE_NAME  - Nome do serviço (padrão: $SERVICE_NAME)"
     echo ""
     echo "EXEMPLOS:"
     echo "  $0 build                                    # Build padrão"
     echo "  COMPOSE_FILE=docker-compose.yaml $0 run     # Com arquivo específico"
-    echo "  SERVICE_NAME=postgres $0 logs               # Com serviço específico"
+    echo "  $0 logs                                     # Ver logs"
     echo ""
 }
 
 # Função para build
 do_build() {
-    echo "🏗️  Fazendo build da imagem $SERVICE_NAME..."
+    echo "🏗️  Fazendo build das imagens..."
     echo "📁 Arquivo: $COMPOSE_FILE"
-    docker compose -f "$COMPOSE_FILE" build "$SERVICE_NAME"
+    docker compose -f "$COMPOSE_FILE" build
     
     if [ $? -eq 0 ]; then
         echo "✅ Build concluído com sucesso!"
@@ -52,20 +50,20 @@ do_build() {
 
 # Função para executar
 do_run() {
-    echo "🚀 Iniciando container $SERVICE_NAME..."
+    echo "🚀 Iniciando containers..."
     echo "📁 Arquivo: $COMPOSE_FILE"
-    docker compose -f "$COMPOSE_FILE" up -d "$SERVICE_NAME"
+    docker compose -f "$COMPOSE_FILE" up -d
 
     if [ $? -eq 0 ]; then
-        echo "✅ Container iniciado com sucesso!"
+        echo "✅ Containers iniciados com sucesso!"
         echo ""
-        echo "📋 Status do container:"
+        echo "📋 Status dos containers:"
         docker compose -f "$COMPOSE_FILE" ps
         echo ""
         echo "📝 Para ver os logs: $0 logs"
         echo "🛑 Para parar: $0 stop"
     else
-        echo "❌ Erro ao iniciar container!"
+        echo "❌ Erro ao iniciar containers!"
         exit 1
     fi
 }
@@ -88,10 +86,10 @@ do_clean() {
 
 # Função para logs
 do_logs() {
-    echo "📋 Logs do $SERVICE_NAME:"
+    echo "📋 Logs dos containers:"
     echo "========================"
     echo "📁 Arquivo: $COMPOSE_FILE"
-    docker compose -f "$COMPOSE_FILE" logs -f "$SERVICE_NAME"
+    docker compose -f "$COMPOSE_FILE" logs -f
 }
 
 # Verificar se docker compose está disponível

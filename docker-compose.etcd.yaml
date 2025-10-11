@@ -1,4 +1,4 @@
-# Cluster PostgreSQL com Patroni para Alta Disponibilidade (HA)
+# Cluster ETCD para Patroni
 # Autor: Eduardo Richard
 # Versão: v2.0 (2025)
 
@@ -18,25 +18,10 @@ x-etcd-common: &etcd-common
     retries: 3
     start_period: 15s
 
-# --- PATRONI POSTGRES ANCORA ---
-template-patroni-service: &patroni-service
-  image: patroni-postgres:base
-  build:
-    context: ./infra/patroni-postgres
-  networks:
-    - pg-ha-network
-  depends_on:
-    etcd:
-      condition: service_healthy
-  healthcheck:
-    test: ["CMD-SHELL", "curl -f $${PATRONI_RESTAPI_URL}/health"]
-    interval: 10s
-    timeout: 5s
-    retries: 3
-
 # ═══════════════════════════════════════════════════════════════════
 # SERVIÇOS
 # ═══════════════════════════════════════════════════════════════════
+
 services:
 
   # --- ETCD Node 1 ---
@@ -105,96 +90,6 @@ services:
     volumes:
       - etcd-3-data:/etcd-data
 
-  # --- PATRONI POSTGRES NODES ---
-  patroni-postgres-1:
-    <<: *patroni-service
-    container_name: ${PG1_NAME}
-    hostname: ${PG1_NAME}
-
-    environment:
-      PATRONI_NAME: ${PG1_NAME}
-      PATRONI_RESTAPI_URL: http://${PG1_NAME}:8008
-      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG1_NAME}:5432
-      
-    env_file:
-      - ./infra/patroni-postgres/config/.patroni.env
-
-    ports:
-      - "${PG1_API_HOST_PORT}:8008"
-      - "${PG1_HOST_PORT}:5432"
-
-    volumes:
-      - patroni-postgres-1-data:/var/lib/postgresql/data/pgdata
-
-
-  # --- PATRONI POSTGRES NODES ---
-  patroni-postgres-2:
-    <<: *patroni-service
-    container_name: ${PG2_NAME}
-    hostname: ${PG2_NAME}
-  
-    environment:
-      PATRONI_NAME: ${PG2_NAME}
-      PATRONI_RESTAPI_URL: http://${PG2_NAME}:8008
-      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG2_NAME}:5432
-    
-    env_file:
-      - ./infra/patroni-postgres/config/.patroni.env
-
-    ports:
-      - "${PG2_API_HOST_PORT}:8008"
-      - "${PG2_HOST_PORT}:5432"
-    volumes:
-      - patroni-postgres-2-data:/var/lib/postgresql/data/pgdata
-
-
-  # --- PATRONI POSTGRES NODES ---
-  patroni-postgres-3:
-    <<: *patroni-service
-    container_name: ${PG3_NAME}
-    hostname: ${PG3_NAME}
-
-    environment:
-      PATRONI_NAME: ${PG3_NAME}
-      PATRONI_RESTAPI_URL: http://${PG3_NAME}:8008
-      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG3_NAME}:5432
-      
-    env_file:
-      - ./infra/patroni-postgres/config/.patroni.env
- 
-    ports:
-      - "${PG3_API_HOST_PORT}:8008"
-      - "${PG3_HOST_PORT}:5432"
-    volumes:
-      - patroni-postgres-3-data:/var/lib/postgresql/data/pgdata
-
-
-  # # --- PGPOOL-II (Connection Pooler & Load Balancer) ---
-  # pgpool:
-  #   container_name: ${PGPOOL_NAME}
-  #   hostname: ${PGPOOL_NAME}
-  #   build: 
-  #     context: ./infra/pgpool # Aponta para o diretório com o Dockerfile do Pgpool
-  #   ports:
-  #     # A porta 9999 é a porta padrão do Pgpool para conexões de clientes
-  #     - "${PGPOOL_HOST_PORT}:5432"
-  #     # A porta 9898 é a porta padrão para o protocolo PCP (Pgpool Communication Protocol)
-  #     - "${PGPOOL_PCP_HOST_PORT}:9898"
-  #   depends_on:
-  #     patroni-postgres-1:
-  #       condition: service_healthy
-  #     patroni-postgres-2:
-  #       condition: service_healthy
-  #     patroni-postgres-3:
-  #       condition: service_healthy
-  #   networks:
-  #     - pg-ha-network
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U postgres"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 3
-
 # ═══════════════════════════════════════════════════════════════════
 # VOLUMES
 # ═══════════════════════════════════════════════════════════════════
@@ -220,30 +115,6 @@ volumes:
         type: none
         o: bind
         device: ${ETCD3_DATA_PATH}
-
-  patroni-postgres-1-data:
-      name: ${PG1_NAME}-data
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${PG1_DATA_PATH}
-
-  patroni-postgres-2-data:
-      name: ${PG2_NAME}-data
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${PG2_DATA_PATH}
-
-  patroni-postgres-3-data:
-      name: ${PG3_NAME}-data
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${PG3_DATA_PATH}
 
 # ═══════════════════════════════════════════════════════════════════
 # NETWORKS
