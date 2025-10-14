@@ -17,13 +17,21 @@ services:
       - "-n"
       - "-f"
       - "/opt/pgpool/etc/pgpool.conf"
+
+    # depends_on:
+    #   patroni-postgres-1:
+    #     condition: service_healthy
+    #   patroni-postgres-2:
+    #     condition: service_healthy
+    #   patroni-postgres-3:
+    #     condition: service_healthy
     
-    healthcheck:
-      test: ["CMD-SHELL", "pcp_node_count -h localhost -p 9898 -U pcpuser --no-password >/dev/null"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+    # healthcheck:
+    #   test: ["CMD-SHELL", "psql -h 127.0.0.1 -p 5432 -U healthcheck -c \"SHOW POOL_HEALTH_CHECK_STATS\" >/dev/null"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 3
+    #   start_period: 15s
 
     volumes:
       - ./infra/pgpool/scripts:/opt/pgpool/bin/scripts:ro

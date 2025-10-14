@@ -51,7 +51,7 @@ postgresql:
   # Parâmetros que serão escritos no postgresql.conf.
   parameters:
     # --- Segurança e Autenticação ---
-    password_encryption: "scram-sha-256"
+    password_encryption: "md5"
     ssl: "off"  # Desabilita SSL para simplificar a replicação
 
     # --- Replicação e HA ---
@@ -92,10 +92,13 @@ bootstrap:
   
   # Regras de acesso iniciais que serão escritas no pg_hba.conf.
   pg_hba:
-    # Permite que qualquer usuário se conecte de qualquer IP (útil em Docker).
-    - host all all 0.0.0.0/0 scram-sha-256
-    # Permite conexões de replicação sem SSL do usuário replicator
+    - local all all trust
+    - host all healthchecker 0.0.0.0/0 trust
     - host replication replicator 0.0.0.0/0 trust
+    - host all all 0.0.0.0/0 md5
+    
+  # Script customizado para rodar APÓS o bootstrap inicial do cluster.
+  post_bootstrap: /etc/patroni/scripts/post_bootstrap.sh
 
 # ═══════════════════════════════════════════════════════════════════
 # --- LOGS ---

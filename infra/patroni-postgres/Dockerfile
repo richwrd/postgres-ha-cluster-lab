@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-etcd \
     build-essential \
     curl \
+    vim \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/patroni \
@@ -19,6 +20,10 @@ RUN python3 -m venv /opt/patroni \
 ENV PATH="/opt/patroni/bin:$PATH"
 
 COPY config/patroni.yml /etc/patroni.yml
+COPY config/scripts/post_bootstrap.sh /etc/patroni/scripts/post_bootstrap.sh
+
+RUN chmod +x /etc/patroni/scripts/post_bootstrap.sh
+
 
 EXPOSE 5432 8008
 

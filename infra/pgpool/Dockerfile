@@ -36,7 +36,16 @@ RUN apt-get update && \
         bison && \
     rm -rf /var/lib/apt/lists/*
 
-# --- Etapa 2: Download, Compilação e Instalação do Pgpool-II ---
+# --- Etapa 2: Instalação do Cliente PostgreSQL ---
+# Adiciona o repositório oficial do PostgreSQL e instala o cliente,
+# que é uma dependência de runtime para os comandos pcp_*.
+RUN curl -sS https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-key.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/postgresql-key.gpg] http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main ${PG_MAJOR}" > /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends postgresql-client-${PG_MAJOR} && \
+    rm -rf /var/lib/apt/lists/*
+
+# --- Etapa 3: Download, Compilação e Instalação do Pgpool-II ---
 # Baixa o código-fonte do GitHub oficial.
 # Usando GitHub releases para maior confiabilidade e disponibilidade.
 RUN curl -fsSL -o pgpool-II.tar.gz \
@@ -59,14 +68,6 @@ RUN curl -fsSL -o pgpool-II.tar.gz \
     cd .. && \
     rm -rf pgpool2-${PGPOOL_VERSION}
 
-# --- Etapa 3: Instalação do Cliente PostgreSQL ---
-# Adiciona o repositório oficial do PostgreSQL e instala o cliente,
-# que é uma dependência de runtime para os comandos pcp_*.
-RUN curl -sS https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-key.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/postgresql-key.gpg] http://apt.postgresql.org/pub/repos/apt bullseye-pgdg main ${PG_MAJOR}" > /etc/apt/sources.list.d/pgdg.list && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends postgresql-client-${PG_MAJOR} && \
-    rm -rf /var/lib/apt/lists/*
 
 # --- Etapa 4: Limpeza e Criação de Usuário ---
 # Remove as dependências que eram necessárias apenas para a compilação e

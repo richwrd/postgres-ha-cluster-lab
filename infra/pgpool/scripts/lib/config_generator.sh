@@ -17,16 +17,16 @@ generate_backend_config() {
       if type == "object" and has("members") then
         .members | to_entries | .[] |
         
-        # CORREÇÃO: Considera nós em "running" (líder) ou "streaming" (réplica saudável) como válidos.
+        # Considera nós em "running" (líder) ou "streaming" (réplica saudável) como válidos
         if (.value.state == "running" or .value.state == "streaming") then
           [
             "# Config for node " + (.key|tostring) + ": " + .value.name + " (" + .value.role + " / state: " + .value.state + ")",
-            "backend_hostname" + (.key|tostring) + " = \u0027" + .value.host + "\u0027",
+            "backend_hostname" + (.key|tostring) + " = " + .value.host,
             "backend_port" + (.key|tostring) + " = " + (.value.port|tostring),
-            "backend_weight" + (.key|tostring) + " = " + (if .value.role == "leader" then "1" else "0" end),
+            "backend_weight" + (.key|tostring) + " = " + (if .value.role == "leader" then "1" else "1" end),
             "backend_data_directory" + (.key|tostring) + " = \u0027/var/lib/postgresql/data\u0027",
-            "backend_flag" + (.key|tostring) + " = \u0027" + (if .value.role == "leader" then "ALWAYS_PRIMARY" else "ALLOW_TO_FAILOVER" end) + "\u0027",
-            "backend_application_name" + (.key|tostring) + " = \u0027" + .value.name + "\u0027",
+            "backend_flag" + (.key|tostring) + " = ALLOW_TO_FAILOVER",
+            "backend_application_name" + (.key|tostring) + " = " + .value.name,
             ""
           ] | join("\n")
         else

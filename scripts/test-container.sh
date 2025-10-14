@@ -4,7 +4,7 @@
 # Autor: Eduardo Richard
 
 # Configuração do arquivo Docker Compose
-COMPOSE_FILE="${COMPOSE_FILE:-./docker-compose.etcd.yaml}"
+COMPOSE_FILE="${COMPOSE_FILE:-./docker-compose.pgpool.yaml}"
 
 echo "🔧 Script de Teste de Containers"
 echo "================================"
