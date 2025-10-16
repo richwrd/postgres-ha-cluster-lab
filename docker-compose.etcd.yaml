@@ -91,35 +91,5 @@ services:
       - etcd-3-data:/etcd-data
 
 # ═══════════════════════════════════════════════════════════════════
-# VOLUMES
+# NOTA: Volumes e Networks são gerenciados pelo docker-compose.yaml principal
 # ═══════════════════════════════════════════════════════════════════
-volumes:
-  etcd-1-data:
-      name: etcd-1-data
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${ETCD1_DATA_PATH}
-  etcd-2-data:
-      name: etcd-2-data
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${ETCD2_DATA_PATH}
-  etcd-3-data:
-      name: etcd-3-data
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${ETCD3_DATA_PATH}
-
-# ═══════════════════════════════════════════════════════════════════
-# NETWORKS
-# ═══════════════════════════════════════════════════════════════════
-networks:
-  pg-ha-network:
-    name: ${NETWORK_NAME}
-    driver: bridge

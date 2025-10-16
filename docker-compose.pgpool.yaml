@@ -1,6 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════
 # Docker Compose para Pgpool-II com Configuração Externalizada
 # Autor: Eduardo Richard
+# Versão: v2.0 (2025)
 # ═══════════════════════════════════════════════════════════════════
 
 services:
@@ -18,20 +19,22 @@ services:
       - "-f"
       - "/opt/pgpool/etc/pgpool.conf"
 
-    # depends_on:
-    #   patroni-postgres-1:
-    #     condition: service_healthy
-    #   patroni-postgres-2:
-    #     condition: service_healthy
-    #   patroni-postgres-3:
-    #     condition: service_healthy
+    depends_on:
+      patroni-postgres-1:
+        condition: service_healthy
+      patroni-postgres-2:
+        condition: service_healthy
+      patroni-postgres-3:
+        condition: service_healthy
     
-    # healthcheck:
-    #   test: ["CMD-SHELL", "psql -h 127.0.0.1 -p 5432 -U healthcheck -c \"SHOW POOL_HEALTH_CHECK_STATS\" >/dev/null"]
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 3
-    #   start_period: 15s
+    healthcheck:
+      test: 
+      - "CMD-SHELL"
+      - "pg_isready -h localhost -p 5432"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
     volumes:
       - ./infra/pgpool/scripts:/opt/pgpool/bin/scripts:ro
@@ -52,19 +55,6 @@ services:
     networks:
       - pg-ha-network
 
-volumes:
-  pgpool2-logs:
-      name: pgpool2-logs
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${PGPOOL_DATA_PATH}
-
 # ═══════════════════════════════════════════════════════════════════
-# NETWORKS
+# NOTA: Volumes e Networks são gerenciados pelo docker-compose.yaml principal
 # ═══════════════════════════════════════════════════════════════════
-networks:
-  pg-ha-network:
-    name: pg-ha-network
-    driver: bridge

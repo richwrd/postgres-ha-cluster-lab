@@ -1,209 +1,38 @@
-# Cluster PostgreSQL com Patroni para Alta Disponibilidade (HA)
+# ═══════════════════════════════════════════════════════════════════
+# Cluster PostgreSQL com Patroni - Arquivo Principal (Orquestrador)
 # Autor: Eduardo Richard
 # Versão: v2.0 (2025)
+# ═══════════════════════════════════════════════════════════════════
+# 
+# Este arquivo utiliza a diretiva 'include' do Docker Compose v2.20+
+# para carregar automaticamente todos os serviços segmentados.
+#
+# ESTRUTURA:
+# - docker-compose.etcd.yaml    → Cluster ETCD (3 nós)
+# - docker-compose.patroni.yaml → Cluster Patroni/PostgreSQL (3 nós)
+# - docker-compose.pgpool.yaml  → PgPool-II (Load Balancer)
+#
+# USO:
+#   docker compose up -d              # Sobe todos os serviços
+#   docker compose down               # Para todos os serviços
+#   docker compose ps                 # Lista status dos serviços
+#   docker compose logs -f [service]  # Visualiza logs
+#
+# ═══════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════
-# ÂNCORAS YAML (Templates Reutilizáveis)
+# INCLUDES - Importa arquivos segmentados
 # ═══════════════════════════════════════════════════════════════════
-
-x-etcd-common: &etcd-common
-  image: gcr.io/etcd-development/etcd:v3.5.17
-  networks:
-    - pg-ha-network
-  restart: unless-stopped
-  healthcheck:
-    test: ["CMD", "etcdctl", "endpoint", "health", "--endpoints=http://127.0.0.1:2379"]
-    interval: 10s
-    timeout: 5s
-    retries: 3
-    start_period: 15s
-
-# --- PATRONI POSTGRES ANCORA ---
-x-patroni-common: &patroni-common
-  image: patroni-postgres:base
-  build:
-    context: ./infra/patroni-postgres
-  networks:
-    - pg-ha-network
-  depends_on:
-    etcd-1:
-      condition: service_healthy
-    etcd-2:
-      condition: service_healthy
-    etcd-3:
-      condition: service_healthy
-  healthcheck:
-    test: ["CMD-SHELL", "curl -f http://localhost:8008/health || exit 1"]
-    interval: 10s
-    timeout: 5s
-    retries: 3
-    start_period: 30s
+include:
+  - docker-compose.etcd.yaml
+  - docker-compose.patroni.yaml
+  - docker-compose.pgpool.yaml
 
 # ═══════════════════════════════════════════════════════════════════
-# SERVIÇOS
-# ═══════════════════════════════════════════════════════════════════
-services:
-
-  # --- ETCD Node 1 ---
-  etcd-1:
-    <<: *etcd-common
-    hostname: ${ETCD1_NAME}
-    container_name: ${ETCD1_NAME}
-    command:
-      - /usr/local/bin/etcd
-      - --name=${ETCD1_NAME}
-      - --data-dir=/etcd-data
-      - --listen-peer-urls=http://0.0.0.0:2380
-      - --listen-client-urls=http://0.0.0.0:2379
-      - --advertise-client-urls=http://${ETCD1_NAME}:2379
-      - --initial-advertise-peer-urls=http://${ETCD1_NAME}:2380
-      - --initial-cluster=${ETCD1_NAME}=http://${ETCD1_NAME}:2380,${ETCD2_NAME}=http://${ETCD2_NAME}:2380,${ETCD3_NAME}=http://${ETCD3_NAME}:2380
-      - --initial-cluster-token=patroni-etcd-cluster
-      - --initial-cluster-state=new
-    ports:
-      - "${ETCD1_HOST_PORT:-2379}:2379"
-      - "${ETCD1_PEER_PORT:-2380}:2380"
-    volumes:
-      - etcd-1-data:/etcd-data
-
-  # --- ETCD Node 2 ---
-  etcd-2:
-    <<: *etcd-common
-    hostname: ${ETCD2_NAME}
-    container_name: ${ETCD2_NAME}
-    command:
-      - /usr/local/bin/etcd
-      - --name=${ETCD2_NAME}
-      - --data-dir=/etcd-data
-      - --listen-peer-urls=http://0.0.0.0:2380
-      - --listen-client-urls=http://0.0.0.0:2379
-      - --advertise-client-urls=http://${ETCD2_NAME}:2379
-      - --initial-advertise-peer-urls=http://${ETCD2_NAME}:2380
-      - --initial-cluster=${ETCD1_NAME}=http://${ETCD1_NAME}:2380,${ETCD2_NAME}=http://${ETCD2_NAME}:2380,${ETCD3_NAME}=http://${ETCD3_NAME}:2380
-      - --initial-cluster-token=patroni-etcd-cluster
-      - --initial-cluster-state=new
-    ports:
-      - "${ETCD2_HOST_PORT:-2479}:2379"
-      - "${ETCD2_PEER_PORT:-2480}:2380"
-    volumes:
-      - etcd-2-data:/etcd-data
-
-  # --- ETCD Node 3 ---
-  etcd-3:
-    <<: *etcd-common
-    hostname: ${ETCD3_NAME}
-    container_name: ${ETCD3_NAME}
-    command:
-      - /usr/local/bin/etcd
-      - --name=${ETCD3_NAME}
-      - --data-dir=/etcd-data
-      - --listen-peer-urls=http://0.0.0.0:2380
-      - --listen-client-urls=http://0.0.0.0:2379
-      - --advertise-client-urls=http://${ETCD3_NAME}:2379
-      - --initial-advertise-peer-urls=http://${ETCD3_NAME}:2380
-      - --initial-cluster=${ETCD1_NAME}=http://${ETCD1_NAME}:2380,${ETCD2_NAME}=http://${ETCD2_NAME}:2380,${ETCD3_NAME}=http://${ETCD3_NAME}:2380
-      - --initial-cluster-token=patroni-etcd-cluster
-      - --initial-cluster-state=new
-    ports:
-      - "${ETCD3_HOST_PORT:-2579}:2379"
-      - "${ETCD3_PEER_PORT:-2580}:2380"
-    volumes:
-      - etcd-3-data:/etcd-data
-
-  # --- PATRONI POSTGRES NODES ---
-  patroni-postgres-1:
-    <<: *patroni-common
-    container_name: ${PG1_NAME}
-    hostname: ${PG1_NAME}
-
-    environment:
-      PATRONI_NAME: ${PG1_NAME}
-      PATRONI_RESTAPI_URL: http://${PG1_NAME}:8008
-      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG1_NAME}:5432
-      
-    env_file:
-      - ./infra/patroni-postgres/config/.patroni.env
-
-    ports:
-      - "${PG1_API_HOST_PORT}:8008"
-      - "${PG1_HOST_PORT}:5432"
-
-    volumes:
-      - patroni-postgres-1-data:/var/lib/postgresql/data/pgdata
-
-
-  # --- PATRONI POSTGRES NODES ---
-  patroni-postgres-2:
-    <<: *patroni-common
-    container_name: ${PG2_NAME}
-    hostname: ${PG2_NAME}
-  
-    environment:
-      PATRONI_NAME: ${PG2_NAME}
-      PATRONI_RESTAPI_URL: http://${PG2_NAME}:8008
-      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG2_NAME}:5432
-    
-    env_file:
-      - ./infra/patroni-postgres/config/.patroni.env
-
-    ports:
-      - "${PG2_API_HOST_PORT}:8008"
-      - "${PG2_HOST_PORT}:5432"
-    volumes:
-      - patroni-postgres-2-data:/var/lib/postgresql/data/pgdata
-
-
-  # --- PATRONI POSTGRES NODES ---
-  patroni-postgres-3:
-    <<: *patroni-common
-    container_name: ${PG3_NAME}
-    hostname: ${PG3_NAME}
-
-    environment:
-      PATRONI_NAME: ${PG3_NAME}
-      PATRONI_RESTAPI_URL: http://${PG3_NAME}:8008
-      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG3_NAME}:5432
-      
-    env_file:
-      - ./infra/patroni-postgres/config/.patroni.env
- 
-    ports:
-      - "${PG3_API_HOST_PORT}:8008"
-      - "${PG3_HOST_PORT}:5432"
-    volumes:
-      - patroni-postgres-3-data:/var/lib/postgresql/data/pgdata
-
-
-  # # --- PGPOOL-II (Connection Pooler & Load Balancer) ---
-  # pgpool:
-  #   container_name: ${PGPOOL_NAME}
-  #   hostname: ${PGPOOL_NAME}
-  #   build: 
-  #     context: ./infra/pgpool # Aponta para o diretório com o Dockerfile do Pgpool
-  #   ports:
-  #     # A porta 9999 é a porta padrão do Pgpool para conexões de clientes
-  #     - "${PGPOOL_HOST_PORT}:5432"
-  #     # A porta 9898 é a porta padrão para o protocolo PCP (Pgpool Communication Protocol)
-  #     - "${PGPOOL_PCP_HOST_PORT}:9898"
-  #   depends_on:
-  #     patroni-postgres-1:
-  #       condition: service_healthy
-  #     patroni-postgres-2:
-  #       condition: service_healthy
-  #     patroni-postgres-3:
-  #       condition: service_healthy
-  #   networks:
-  #     - pg-ha-network
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U postgres"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 3
-
-# ═══════════════════════════════════════════════════════════════════
-# VOLUMES
+# VOLUMES COMPARTILHADOS
 # ═══════════════════════════════════════════════════════════════════
 volumes:
+  # --- Volumes ETCD ---
   etcd-1-data:
       name: ${ETCD1_NAME}-data
       driver: local
@@ -211,6 +40,7 @@ volumes:
         type: none
         o: bind
         device: ${ETCD1_DATA_PATH}
+  
   etcd-2-data:
       name: ${ETCD2_NAME}-data
       driver: local
@@ -218,6 +48,7 @@ volumes:
         type: none
         o: bind
         device: ${ETCD2_DATA_PATH}
+  
   etcd-3-data:
       name: ${ETCD3_NAME}-data
       driver: local
@@ -226,6 +57,7 @@ volumes:
         o: bind
         device: ${ETCD3_DATA_PATH}
 
+  # --- Volumes Patroni/PostgreSQL ---
   patroni-postgres-1-data:
       name: ${PG1_NAME}-data
       driver: local
@@ -250,8 +82,17 @@ volumes:
         o: bind
         device: ${PG3_DATA_PATH}
 
+  # --- Volume PgPool ---
+  pgpool2-logs:
+      name: pgpool2-logs
+      driver: local
+      driver_opts:
+        type: none
+        o: bind
+        device: ${PGPOOL_DATA_PATH}
+
 # ═══════════════════════════════════════════════════════════════════
-# NETWORKS
+# NETWORKS COMPARTILHADAS
 # ═══════════════════════════════════════════════════════════════════
 networks:
   pg-ha-network:

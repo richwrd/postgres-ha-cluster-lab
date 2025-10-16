@@ -1,3 +1,4 @@
 .env
 .patroni.env
 .pgpool.env
+/docs

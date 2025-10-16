@@ -1,6 +1,8 @@
+# ═══════════════════════════════════════════════════════════════════
 # Cluster PostgreSQL com Patroni para Alta Disponibilidade (HA)
 # Autor: Eduardo Richard
 # Versão: v2.0 (2025)
+# ═══════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════
 # ÂNCORAS YAML (Templates Reutilizáveis)
@@ -96,38 +98,5 @@ services:
       - patroni-postgres-3-data:/var/lib/postgresql/data/pgdata
 
 # ═══════════════════════════════════════════════════════════════════
-# VOLUMES
+# NOTA: Volumes e Networks são gerenciados pelo docker-compose.yaml principal
 # ═══════════════════════════════════════════════════════════════════
-volumes:
-
-  patroni-postgres-1-data:
-      name: ${PG1_NAME}-data
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${PG1_DATA_PATH}
-
-  patroni-postgres-2-data:
-      name: ${PG2_NAME}-data
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${PG2_DATA_PATH}
-
-  patroni-postgres-3-data:
-      name: ${PG3_NAME}-data
-      driver: local
-      driver_opts:
-        type: none
-        o: bind
-        device: ${PG3_DATA_PATH}
-
-# ═══════════════════════════════════════════════════════════════════
-# NETWORKS
-# ═══════════════════════════════════════════════════════════════════
-networks:
-  pg-ha-network:
-    name: ${NETWORK_NAME}
-    driver: bridge
