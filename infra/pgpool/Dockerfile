@@ -70,13 +70,22 @@ RUN curl -fsSL -o pgpool-II.tar.gz \
 
 
 # --- Etapa 4: Limpeza e Criação de Usuário ---
-# Remove as dependências que eram necessárias apenas para a compilação e
-# cria o usuário não-root que executará o serviço.
-RUN apt-get purge -y --auto-remove build-essential libpq-dev libssl-dev && \
+RUN apt-get install -y --no-install-recommends libpq5 libssl1.1 && \
+    apt-get purge -y --auto-remove build-essential && \
     apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
     groupadd --system pgpool && \
     useradd --system --create-home --home-dir /home/pgpool --gid pgpool pgpool && \
     chown -R pgpool:pgpool /opt/pgpool
+
+# --- Etapa 5: Verificação de Ferramentas Instaladas ---
+RUN echo "=== Verificando instalação do Pgpool-II ===" && \
+    ls -la /opt/pgpool/bin/ && \
+    /opt/pgpool/bin/pgpool --version
+
+# --- Configuração de Ambiente ---
+# Adiciona o diretório de binários do pgpool ao PATH
+ENV PATH="/opt/pgpool/bin:${PATH}"
 
 # Gosu é uma ferramenta que permite executar processos como outro usuário.
 # Posteriormente, no entrypoint.sh, usaremos o gosu para iniciar o Pgpool-II como pgpool.

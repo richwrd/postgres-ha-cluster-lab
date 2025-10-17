@@ -39,19 +39,30 @@ echo "Gerando .pcppass para autenticação dos clientes PCP no serviço Pgpool-I
 echo "*:9898:${PGPOOL_PCP_USER}:${PGPOOL_PCP_PASSWORD}" > "${HOME}/.pcppass"
 
 # ------------------------------------------------------------------------------------
-# pool_passwd para o Pgpool autenticar no PostgreSQL quando backend exigir senha
-# Formato TEXT é compatível com SCRAM (e também funciona com md5 no backend)
-# Linha no formato: usuario:TEXTsenha
+# pool_passwd: Senhas que o Pgpool usa para autenticar nos backends PostgreSQL
+# Formato: usuario:md5hash
+# O hash MD5 do PostgreSQL é calculado como: md5(senha + usuario)
+#
+# IMPORTANTE: Com enable_pool_hba = on, este arquivo só precisa conter as credenciais
+# dos usuários INTERNOS do PgPool (healthchecker, replicator). As senhas dos usuários
+# de aplicação são repassadas diretamente ao PostgreSQL via pass-through authentication.
 # ------------------------------------------------------------------------------------
-echo "Gerando pool_passwd (formato TEXT) para autenticação do Pgpool-II com os backends..."
+echo "Gerando pool_passwd..."
 mkdir -p "$(dirname "${POOL_PASSWD_PATH}")"
 
-# Cria/atualiza entradas necessárias
-# Atenção: não use underscore após TEXT; o prefixo é 'TEXT' colado na senha
+# Gera hashes MD5 no formato PostgreSQL: md5(password + username)
 {
-  echo "${PGPOOL_HEALTHCHECK_USER}:TEXT${PGPOOL_HEALTHCHECK_PASSWORD}"
-  echo "${PGPOOL_SR_CHECK_USER}:TEXT${PGPOOL_SR_CHECK_PASSWORD}"
+  pg_md5 -m -u "${PGPOOL_HEALTHCHECK_USER}" "${PGPOOL_HEALTHCHECK_PASSWORD}"
+  pg_md5 -m -u "${PGPOOL_SR_CHECK_USER}" "${PGPOOL_SR_CHECK_PASSWORD}"
 } > "${POOL_PASSWD_PATH}"
+
+# ------------------------------------------------------------------------------------
+# pcp.conf: Senhas para autenticar usuários PCP (porta de administração 9898)
+# Formato: usuario:md5hash_simples
+# ------------------------------------------------------------------------------------
+echo "Gerando pcp.conf..."
+PCP_CONF_PATH="/opt/pgpool/etc/pcp.conf"
+echo "${PGPOOL_PCP_USER}:$(pg_md5 "${PGPOOL_PCP_PASSWORD}")" > "${PCP_CONF_PATH}"
 
 
 # ------------------------------------------------------------------------------------
@@ -59,10 +70,11 @@ mkdir -p "$(dirname "${POOL_PASSWD_PATH}")"
 # Apenas o proprietário (usuário 'pgpool') poderá ler os arquivos.
 # ------------------------------------------------------------------------------------
 # --- Permissões ---
-chmod 600 "${HOME}/.pgpass" "${HOME}/.pcppass" "${POOL_PASSWD_PATH}" || true
+chmod 600 "${HOME}/.pgpass" "${HOME}/.pcppass" "${POOL_PASSWD_PATH}" "${PCP_CONF_PATH}" || true
 
 
 echo "✅ Arquivos de senha criados com segurança:"
 echo " - ${HOME}/.pgpass"
 echo " - ${HOME}/.pcppass"
 echo " - ${POOL_PASSWD_PATH}"
+echo " - ${PCP_CONF_PATH}"

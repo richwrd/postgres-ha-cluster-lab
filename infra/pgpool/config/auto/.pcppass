@@ -1,0 +1,13 @@
+# ===================================================================
+# Arquivo .pcppass - Credenciais PCP para ferramentas cliente
+# ===================================================================
+# Propósito: Usado pelas ferramentas CLIENTE do PCP (ex: pcp_node_count
+#            no healthcheck do Docker) para se conectar à porta de
+#            administração (9898) do Pgpool-II.
+# 
+# Formato: hostname:porta:usuario:senha
+# Exemplo: localhost:9898:pgpool:pgpool_password
+# 
+# Este arquivo será gerado dinamicamente no startup do container.
+# Será sobrescrito pelo script 03_generate_passwords.sh
+# ===================================================================

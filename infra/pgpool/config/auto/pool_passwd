@@ -1,0 +1,12 @@
+# ===================================================================
+# Arquivo pool_passwd - Senhas de Backend PostgreSQL
+# ===================================================================
+# Formato: usuario:md5hash
+# Este arquivo contém as credenciais que o Pgpool-II usa para
+# autenticar nos servidores backend PostgreSQL.
+# 
+# O hash MD5 do PostgreSQL é calculado como: md5(senha + usuario)
+# 
+# Este arquivo será sobrescrito pelo script 03_generate_passwords.sh
+# durante o startup do container.
+# ===================================================================

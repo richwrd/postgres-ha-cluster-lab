@@ -30,7 +30,7 @@ services:
     healthcheck:
       test: 
       - "CMD-SHELL"
-      - "pg_isready -h localhost -p 5432"
+      - "PCPPASSFILE=/home/pgpool/.pcppass pcp_node_count -h localhost -p 9898 -U pcp_admin -w >/dev/null 2>&1 || exit 1"
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,7 +40,6 @@ services:
       - ./infra/pgpool/scripts:/opt/pgpool/bin/scripts:ro
 
       - ./infra/pgpool/config/pgpool.template.conf:/etc/pgpool2/pgpool.template.conf:ro
-      - ./infra/pgpool/config/pcp.conf:/opt/pgpool/etc/pcp.conf:ro
       - ./infra/pgpool/config/pool_hba.conf:/opt/pgpool/etc/pool_hba.conf:ro
 
       - pgpool2-logs:/var/log/pgpool
