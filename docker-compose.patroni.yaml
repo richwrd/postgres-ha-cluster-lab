@@ -37,20 +37,20 @@ services:
   # --- PATRONI POSTGRES NODES ---
   patroni-postgres-1:
     <<: *patroni-common
-    container_name: ${PG1_NAME}
-    hostname: ${PG1_NAME}
+    container_name: ${PATRONI1_NAME}
+    hostname: ${PATRONI1_NAME}
 
     environment:
-      PATRONI_NAME: ${PG1_NAME}
-      PATRONI_RESTAPI_URL: http://${PG1_NAME}:8008
-      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG1_NAME}:5432
+      PATRONI_NAME: ${PATRONI1_NAME}
+      PATRONI_RESTAPI_URL: http://${PATRONI1_NAME}:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PATRONI1_NAME}:5432
       
     env_file:
       - ./infra/patroni-postgres/config/.patroni.env
 
     ports:
-      - "${PG1_API_HOST_PORT}:8008"
-      - "${PG1_HOST_PORT}:5432"
+      - "${PATRONI1_API_HOST_PORT}:8008"
+      - "${PATRONI1_HOST_PORT}:5432"
 
     volumes:
       - patroni-postgres-1-data:/var/lib/postgresql/data/pgdata
@@ -59,20 +59,20 @@ services:
   # --- PATRONI POSTGRES NODES ---
   patroni-postgres-2:
     <<: *patroni-common
-    container_name: ${PG2_NAME}
-    hostname: ${PG2_NAME}
+    container_name: ${PATRONI2_NAME}
+    hostname: ${PATRONI2_NAME}
   
     environment:
-      PATRONI_NAME: ${PG2_NAME}
-      PATRONI_RESTAPI_URL: http://${PG2_NAME}:8008
-      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG2_NAME}:5432
+      PATRONI_NAME: ${PATRONI2_NAME}
+      PATRONI_RESTAPI_URL: http://${PATRONI2_NAME}:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PATRONI2_NAME}:5432
     
     env_file:
       - ./infra/patroni-postgres/config/.patroni.env
 
     ports:
-      - "${PG2_API_HOST_PORT}:8008"
-      - "${PG2_HOST_PORT}:5432"
+      - "${PATRONI2_API_HOST_PORT}:8008"
+      - "${PATRONI2_HOST_PORT}:5432"
     volumes:
       - patroni-postgres-2-data:/var/lib/postgresql/data/pgdata
 
@@ -80,20 +80,20 @@ services:
   # --- PATRONI POSTGRES NODES ---
   patroni-postgres-3:
     <<: *patroni-common
-    container_name: ${PG3_NAME}
-    hostname: ${PG3_NAME}
+    container_name: ${PATRONI3_NAME}
+    hostname: ${PATRONI3_NAME}
 
     environment:
-      PATRONI_NAME: ${PG3_NAME}
-      PATRONI_RESTAPI_URL: http://${PG3_NAME}:8008
-      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PG3_NAME}:5432
+      PATRONI_NAME: ${PATRONI3_NAME}
+      PATRONI_RESTAPI_URL: http://${PATRONI3_NAME}:8008
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS: ${PATRONI3_NAME}:5432
       
     env_file:
       - ./infra/patroni-postgres/config/.patroni.env
  
     ports:
-      - "${PG3_API_HOST_PORT}:8008"
-      - "${PG3_HOST_PORT}:5432"
+      - "${PATRONI3_API_HOST_PORT}:8008"
+      - "${PATRONI3_HOST_PORT}:5432"
     volumes:
       - patroni-postgres-3-data:/var/lib/postgresql/data/pgdata
 

@@ -4,23 +4,11 @@
 
 set -e
 
-load_env_file() {
-  if [ -f "../.env" ]; then
-    source "../.env"
-  else
-    echo "❌ Erro: Arquivo .env não encontrado no diretório pai."
-    exit 1
-  fi
-}
+# Carregar biblioteca de ambiente
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/env.sh"
 
-validate_env_vars() {
-  for var in DATA_BASE_PATH ETCD1_DATA_PATH ETCD2_DATA_PATH ETCD3_DATA_PATH PG1_DATA_PATH PG2_DATA_PATH PG3_DATA_PATH PGPOOL_DATA_PATH; do
-    if [ -z "${!var}" ]; then
-      echo "❌ Erro: A variável $var não está definida no arquivo .env."
-      exit 1
-    fi
-  done
-}
+# ═══════════════════════════════════════════════════════════════════
 
 create_base_directory() {
   echo ""
@@ -85,8 +73,9 @@ display_summary() {
 }
 
 main() {
-  load_env_file
-  validate_env_vars
+  load_env
+  validate_env_vars DATA_BASE_PATH ETCD1_DATA_PATH ETCD2_DATA_PATH ETCD3_DATA_PATH \
+  PG1_DATA_PATH PG2_DATA_PATH PG3_DATA_PATH PGPOOL_DATA_PATH
   create_base_directory
   create_component_directories
   set_directory_permissions

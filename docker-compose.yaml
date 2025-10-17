@@ -59,28 +59,28 @@ volumes:
 
   # --- Volumes Patroni/PostgreSQL ---
   patroni-postgres-1-data:
-      name: ${PG1_NAME}-data
+      name: ${PATRONI1_NAME}-data
       driver: local
       driver_opts:
         type: none
         o: bind
-        device: ${PG1_DATA_PATH}
+        device: ${PATRONI1_DATA_PATH}
 
   patroni-postgres-2-data:
-      name: ${PG2_NAME}-data
+      name: ${PATRONI2_NAME}-data
       driver: local
       driver_opts:
         type: none
         o: bind
-        device: ${PG2_DATA_PATH}
+        device: ${PATRONI2_DATA_PATH}
 
   patroni-postgres-3-data:
-      name: ${PG3_NAME}-data
+      name: ${PATRONI3_NAME}-data
       driver: local
       driver_opts:
         type: none
         o: bind
-        device: ${PG3_DATA_PATH}
+        device: ${PATRONI3_DATA_PATH}
 
   # --- Volume PgPool ---
   pgpool2-logs:
