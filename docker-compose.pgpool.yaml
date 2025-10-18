@@ -12,6 +12,13 @@ services:
     build:
       context: ./infra/pgpool
     restart: unless-stopped
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 1G
+    
     entrypoint: /opt/pgpool/bin/scripts/entrypoint.sh
     command:
       - "/opt/pgpool/bin/pgpool"

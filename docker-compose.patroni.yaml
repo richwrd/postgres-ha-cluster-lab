@@ -29,6 +29,14 @@ x-patroni-common: &patroni-common
     retries: 3
     start_period: 30s
 
+# --- RECURSOS DE CPU E MEMÓRIA ---
+x-patroni-resources: &patroni-resources
+  deploy:
+    resources:
+      limits:
+        cpus: '1.0'
+        memory: 4G
+
 # ═══════════════════════════════════════════════════════════════════
 # SERVIÇOS
 # ═══════════════════════════════════════════════════════════════════
@@ -36,7 +44,7 @@ services:
 
   # --- PATRONI POSTGRES NODES ---
   patroni-postgres-1:
-    <<: *patroni-common
+    <<: [*patroni-common, *patroni-resources]
     container_name: ${PATRONI1_NAME}
     hostname: ${PATRONI1_NAME}
 
@@ -58,7 +66,7 @@ services:
 
   # --- PATRONI POSTGRES NODES ---
   patroni-postgres-2:
-    <<: *patroni-common
+    <<: [*patroni-common, *patroni-resources]
     container_name: ${PATRONI2_NAME}
     hostname: ${PATRONI2_NAME}
   
@@ -79,7 +87,7 @@ services:
 
   # --- PATRONI POSTGRES NODES ---
   patroni-postgres-3:
-    <<: *patroni-common
+    <<: [*patroni-common, *patroni-resources]
     container_name: ${PATRONI3_NAME}
     hostname: ${PATRONI3_NAME}
 

@@ -20,6 +20,14 @@ x-etcd-common: &etcd-common
     retries: 3
     start_period: 15s
 
+# --- RECURSOS DE CPU E MEMÓRIA ---
+x-etcd-resources: &etcd-resources
+  deploy:
+    resources:
+      limits:
+        cpus: '0.25'
+        memory: 1G
+
 # ═══════════════════════════════════════════════════════════════════
 # SERVIÇOS
 # ═══════════════════════════════════════════════════════════════════
@@ -28,7 +36,7 @@ services:
 
   # --- ETCD Node 1 ---
   etcd-1:
-    <<: *etcd-common
+    <<: [*etcd-common, *etcd-resources]
     hostname: ${ETCD1_NAME}
     container_name: ${ETCD1_NAME}
     command:
@@ -50,7 +58,7 @@ services:
 
   # --- ETCD Node 2 ---
   etcd-2:
-    <<: *etcd-common
+    <<: [*etcd-common, *etcd-resources]
     hostname: ${ETCD2_NAME}
     container_name: ${ETCD2_NAME}
     command:
@@ -72,7 +80,7 @@ services:
 
   # --- ETCD Node 3 ---
   etcd-3:
-    <<: *etcd-common
+    <<: [*etcd-common, *etcd-resources]
     hostname: ${ETCD3_NAME}
     container_name: ${ETCD3_NAME}
     command:
