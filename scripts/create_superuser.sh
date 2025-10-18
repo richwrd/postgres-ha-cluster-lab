@@ -9,6 +9,7 @@ set -e
 
 # Carrega funções de logging
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/env.sh"
 source "${SCRIPT_DIR}/lib/logging.sh"
 
 # ==============================================================================
@@ -18,33 +19,104 @@ source "${SCRIPT_DIR}/lib/logging.sh"
 USUARIO=""
 SENHA=""
 DATABASE="postgres"
-LEADER_CONTAINER="${LEADER_CONTAINER:-patroni-postgres-3}"
-PGPOOL_CONTAINER="${PGPOOL_CONTAINER:-pgpool}"
+LEADER_CONTAINER=""
+PGPOOL_CONTAINER="${PGPOOL_NAME:-pgpool}"
 
 # ==============================================================================
 # Funções de Validação
 # ==============================================================================
 
+# Identifica o nó primário do cluster Patroni
+identify_patroni_primary() {
+  log_info "Identificando nó primário (Primary/Leader)..."
+  
+  # Verificar se PATRONI_API_ENDPOINTS está definido
+  if [ -z "$PATRONI_API_ENDPOINTS" ]; then
+    log_error "PATRONI_API_ENDPOINTS não está definido no ambiente"
+    return 1
+  fi
+  
+  # Tentar identificar o primary usando a API do Patroni
+  for endpoint in $PATRONI_API_ENDPOINTS; do
+    # Extrair o nome do container do endpoint (http://patroni-postgres-1:8008 -> patroni-postgres-1)
+    local container_name=$(echo "$endpoint" | sed -E 's|http://([^:]+):.*|\1|')
+    
+    log_info "  Testando endpoint: ${endpoint} (container: ${container_name})"
+    
+    # Verificar se o container existe
+    if ! docker ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
+      log_warning "    Container '${container_name}' não encontrado ou não está rodando"
+      continue
+    fi
+    
+    # Método 1: Usar o endpoint /primary (retorna 200 apenas se for o primário)
+    local HTTP_CODE=$(docker exec "$container_name" curl -s -o /dev/null -w "%{http_code}" http://localhost:8008/primary 2>/dev/null || echo "000")
+    
+    if [ "$HTTP_CODE" = "200" ]; then
+      log_success "  ✅ Primary identificado: ${container_name}"
+      LEADER_CONTAINER="$container_name"
+      return 0
+    fi
+  done
+  
+  # Fallback: Se nenhum primary foi identificado, tentar pegar o primeiro container disponível
+  log_warning "  ⚠️  Não foi possível identificar o primary automaticamente"
+  
+  for endpoint in $PATRONI_API_ENDPOINTS; do
+    local container_name=$(echo "$endpoint" | sed -E 's|http://([^:]+):.*|\1|')
+    
+    if docker ps --format '{{.Names}}' | grep -q "^${container_name}$"; then
+      LEADER_CONTAINER="$container_name"
+      log_warning "  ⚠️  Usando ${LEADER_CONTAINER} como fallback"
+      return 0
+    fi
+  done
+  
+  log_error "Nenhum container Patroni disponível"
+  return 1
+}
+
 # Exibe a mensagem de uso do script
 show_usage() {
-  log_error "Uso: $0 <usuario> <senha> [database]"
+  log_error "Uso: $0 [usuario] [senha] [database]"
+  echo ""
+  echo "Se usuário e senha não forem fornecidos, serão usados os valores de:"
+  echo "  TEST_DB_USERNAME e TEST_DB_PASSWORD (definidos no .env)"
   echo ""
   echo "Exemplos:"
-  echo "  $0 richard minha_senha"
-  echo "  $0 app_user senha123 meu_banco"
+  echo "  $0                              # Usa TEST_DB_USERNAME e TEST_DB_PASSWORD"
+  echo "  $0 richard minha_senha          # Cria usuário 'richard'"
+  echo "  $0 app_user senha123 meu_banco  # Cria usuário 'app_user' no banco 'meu_banco'"
   echo ""
-  echo "Variáveis de ambiente opcionais:"
-  echo "  LEADER_CONTAINER  - Nome do container líder do Patroni (padrão: patroni-postgres-3)"
-  echo "  PGPOOL_CONTAINER  - Nome do container do PgPool (padrão: pgpool)"
+  echo "Variáveis de ambiente:"
+  echo "  PGPOOL_NAME              - Nome do container do PgPool (padrão: pgpool)"
+  echo "  PATRONI_API_ENDPOINTS    - Endpoints da API do Patroni para identificar o leader"
+  echo "  TEST_DB_USERNAME         - Usuário padrão se não for especificado"
+  echo "  TEST_DB_PASSWORD         - Senha padrão se não for especificada"
 }
 
 # Valida e parse dos argumentos da linha de comando
 parse_arguments() {
-  USUARIO=$1
-  SENHA=$2
-  DATABASE=${3:-postgres}
-
-  if [ -z "$USUARIO" ] || [ -z "$SENHA" ]; then
+  # Se argumentos foram passados, usar eles
+  if [ $# -ge 2 ]; then
+    USUARIO=$1
+    SENHA=$2
+    DATABASE=${3:-postgres}
+  # Se não foram passados argumentos, usar variáveis de ambiente
+  elif [ $# -eq 0 ]; then
+    if [ -z "${TEST_DB_USERNAME}" ] || [ -z "${TEST_DB_PASSWORD}" ]; then
+      log_error "Nenhum argumento fornecido e TEST_DB_USERNAME/TEST_DB_PASSWORD não estão definidos"
+      show_usage
+      exit 1
+    fi
+    
+    USUARIO="${TEST_DB_USERNAME}"
+    SENHA="${TEST_DB_PASSWORD}"
+    DATABASE="postgres"
+    
+    log_info "Usando credenciais de ambiente: usuário='${USUARIO}', database='${DATABASE}'"
+  else
+    log_error "Argumentos inválidos: forneça usuário E senha, ou nenhum argumento"
     show_usage
     exit 1
   fi
@@ -66,12 +138,20 @@ check_container_running() {
 
 # Valida se todos os containers necessários estão rodando
 validate_containers() {
-  log_info "Verificando containers..."
+  log_info "Validando ambiente e containers..."
   
-  check_container_running "${LEADER_CONTAINER}" || exit 1
-  check_container_running "${PGPOOL_CONTAINER}" || exit 1
+  # 1. Identificar o nó primário do Patroni
+  if ! identify_patroni_primary; then
+    log_error "Falha ao identificar o nó primário do Patroni"
+    exit 1
+  fi
   
-  log_success "Containers encontrados"
+  # 2. Verificar se o container do PgPool está rodando
+  if ! check_container_running "${PGPOOL_CONTAINER}"; then
+    exit 1
+  fi
+  
+  log_success "Ambiente validado: Leader='${LEADER_CONTAINER}', PgPool='${PGPOOL_CONTAINER}'"
 }
 
 # ==============================================================================
@@ -104,6 +184,15 @@ grant_database_privileges() {
   
   docker exec "${LEADER_CONTAINER}" psql -U postgres -c \
     "GRANT ALL PRIVILEGES ON DATABASE ${database} TO ${username};" > /dev/null
+  
+  docker exec "${LEADER_CONTAINER}" psql -U postgres -d "${database}" -c \
+    "GRANT ALL ON SCHEMA public TO ${username};" > /dev/null
+  
+  docker exec "${LEADER_CONTAINER}" psql -U postgres -d "${database}" -c \
+    "GRANT CREATE ON SCHEMA public TO ${username};" > /dev/null
+  
+  docker exec "${LEADER_CONTAINER}" psql -U postgres -d "${database}" -c \
+    "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO ${username};" > /dev/null
   
   log_success "Privilégios concedidos"
 }
@@ -186,6 +275,9 @@ add_user_to_cluster() {
 # ==============================================================================
 
 main() {
+  load_env
+  validate_env_vars PATRONI_API_ENDPOINTS TEST_DB_USERNAME TEST_DB_PASSWORD
+
   # Parse e validação de argumentos
   parse_arguments "$@"
   
