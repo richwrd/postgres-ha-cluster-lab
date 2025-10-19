@@ -148,12 +148,12 @@ class TestRPOPrimaryFailure:
         print(f"  💥 Injetando falha AGORA (com escritas ainda em andamento)...")
         
         # 4. Injeta falha NO MEIO da escrita
-        print(f"\n[4/7] 💥 PARANDO {initial_primary} (escritas continuam em background)...")
+        print(f"\n[4/7] 💥 KILL {initial_primary} (escritas continuam em background)...")
         rpo_collector.mark_failure_occurred()
         
-        success = docker.stop_container(initial_primary)
+        success = docker.kill_container(initial_primary,signal="SIGKILL")
         assert success, "Falha ao parar container"
-        print(f"✓ Container {initial_primary} PARADO")
+        print(f"✓ Container {initial_primary} morto instantaneamente (SIGKILL)")
         
         # Aguarda task de escrita terminar ou falhar
         print(f"  ⏱️  Aguardando task de escrita finalizar/falhar...")

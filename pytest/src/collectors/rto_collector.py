@@ -135,15 +135,8 @@ class RTOCollector:
         """
         print(f"  ⏱️  Aguardando serviço disponível (timeout: {timeout}s)...")
         
-        # Executa wait em thread para não bloquear async
-        loop = asyncio.get_event_loop()
-        available = await loop.run_in_executor(
-            None,
-            self.postgres.wait_until_available,
-            timeout
-        )
-        
-        if available:
+        event = await self.observer.wait_for_event("service_restored", timeout=timeout)
+        if event:
             if self.metrics:
                 self.metrics.service_restored_at = datetime.utcnow().isoformat()
             print(f"  ✓ Serviço disponível")

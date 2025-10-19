@@ -10,6 +10,8 @@ import time
 from typing import Optional, List, Dict, Any, Callable
 from datetime import datetime
 from .docker_manager import DockerManager
+from .patroni_manager import PatroniManager
+from .postgres_manager import PostgresManager
 from .config import config
 
 
@@ -37,7 +39,7 @@ class ClusterObserver:
     - Restauração de serviço
     """
     
-    def __init__(self, nodes: Optional[List[str]] = None, poll_interval: float = 0.1):
+    def __init__(self, nodes: Optional[List[str]] = None, poll_interval: float = 0.5):
         """
         Args:
             nodes: Lista de nós Patroni para monitorar (None = todos do config)
@@ -46,10 +48,8 @@ class ClusterObserver:
         self.nodes = nodes or config.patroni_nodes
         self.poll_interval = poll_interval
         self.docker = DockerManager()
-        
-        # Estado do cluster
-        self._cluster_state: Dict[str, Dict[str, Any]] = {}
-        self._previous_state: Dict[str, Dict[str, Any]] = {}
+        self.patroni = PatroniManager()
+        self.postgres = PostgresManager()
         
         # Eventos detectados
         self.events: List[ClusterEvent] = []
@@ -60,6 +60,12 @@ class ClusterObserver:
         
         # Callbacks para eventos específicos
         self._event_callbacks: Dict[str, List[Callable]] = {}
+        
+        self.old_primary: Optional[str] = None
+        self.new_primary: Optional[str] = None
+        
+        self.cluster_failed: bool = False
+        self.cluster_restored: bool = False
     
     def on_event(self, event_type: str, callback: Callable):
         """
@@ -83,141 +89,9 @@ class ClusterObserver:
                     callback(event)
                 except Exception as e:
                     print(f"⚠️  Erro em callback: {e}")
-    
-    async def _get_node_status(self, node: str) -> Optional[Dict[str, Any]]:
-        """
-        Obtém status de um nó via API do Patroni
-        
-        Returns:
-            Dict com: role, state, timeline, lag, etc.
-        """
-        try:
-            # Executa patronictl list para este nó específico
-            cmd = ["patronictl", "list", "-f", "json"]
-            
-            # Executa de forma assíncrona
-            loop = asyncio.get_event_loop()
-            output = await loop.run_in_executor(
-                None,
-                self.docker.exec_command,
-                node,
-                cmd,
-                5  # timeout
-            )
-            
-            if not output:
-                return None
-            
-            # Parse JSON
-            members = json.loads(output)
-            
-            # Encontra este nó na lista
-            for member in members:
-                if member.get("Member") == node:
-                    return {
-                        "role": member.get("Role"),
-                        "state": member.get("State"),
-                        "timeline": member.get("TL"),
-                        "lag": member.get("Lag in MB"),
-                        "pending_restart": member.get("Pending restart"),
-                    }
-            
-            return None
-            
-        except Exception as e:
-            # Nó inacessível
-            return {"error": str(e), "accessible": False}
-    
-    async def _monitor_node(self, node: str):
-        """
-        Monitora um nó específico continuamente
-        
-        Detecta mudanças de estado e emite eventos
-        """
-        while self._observing:
-            try:
-                status = await self._get_node_status(node)
-                current_time = time.time()
-                
-                # Atualiza estado
-                previous = self._cluster_state.get(node, {})
-                self._cluster_state[node] = status or {"accessible": False}
-                
-                # Detecta mudanças
-                if previous and status:
-                    # Detecta mudança de role
-                    if previous.get("role") != status.get("role"):
-                        if status.get("role") == "Leader":
-                            event = ClusterEvent(
-                                "new_primary",
-                                node,
-                                current_time,
-                                {"old_role": previous.get("role"), "new_role": "Leader"}
-                            )
-                            self._emit_event(event)
-                    
-                    # Detecta mudança de state
-                    if previous.get("state") != status.get("state"):
-                        if status.get("state") == "running":
-                            event = ClusterEvent(
-                                "node_recovered",
-                                node,
-                                current_time,
-                                {"old_state": previous.get("state"), "new_state": "running"}
-                            )
-                            self._emit_event(event)
-                
-                # Detecta nó inacessível
-                if previous.get("accessible") != False and status.get("accessible") == False:
-                    event = ClusterEvent(
-                        "node_unreachable",
-                        node,
-                        current_time,
-                        {"reason": status.get("error")}
-                    )
-                    self._emit_event(event)
-                
-                await asyncio.sleep(self.poll_interval)
-                
-            except Exception as e:
-                print(f"⚠️  Erro monitorando {node}: {e}")
-                await asyncio.sleep(self.poll_interval)
-    
-    async def _monitor_cluster_consensus(self):
-        """
-        Monitora consenso do cluster (visão global)
-        
-        Detecta quando réplicas percebem falha do primário
-        """
-        while self._observing:
-            try:
-                # Conta quantos nós veem um primário
-                primaries_seen = {}
-                
-                for node, status in self._cluster_state.items():
-                    if status and status.get("role") == "Leader":
-                        primaries_seen[node] = primaries_seen.get(node, 0) + 1
-                
-                # Se nenhum nó se vê como Leader, houve perda de consenso
-                if not primaries_seen and self._cluster_state:
-                    # Verifica se já emitiu evento de "failure_detected"
-                    if not any(e.event_type == "failure_detected" for e in self.events):
-                        event = ClusterEvent(
-                            "failure_detected",
-                            "cluster",
-                            time.time(),
-                            {"reason": "no_leader_consensus"}
-                        )
-                        self._emit_event(event)
-                
-                await asyncio.sleep(self.poll_interval)
-                
-            except Exception as e:
-                print(f"⚠️  Erro monitorando consenso: {e}")
-                await asyncio.sleep(self.poll_interval)
-    
+      
     async def start_observing(self):
-        """Inicia observação assíncrona de todos os nós"""
+        """Inicia observação assíncrona rotacionando entre os nós"""
         if self._observing:
             return
         
@@ -226,15 +100,20 @@ class ClusterObserver:
         self._observing = True
         self.events.clear()
         
-        # Cria tasks para cada nó
-        for node in self.nodes:
-            task = asyncio.create_task(self._monitor_node(node))
-            self._tasks.append(task)
+        self.old_primary = self.patroni.get_primary_node()
         
-        # Task para monitorar consenso
-        consensus_task = asyncio.create_task(self._monitor_cluster_consensus())
-        self._tasks.append(consensus_task)
-    
+        task_1 = asyncio.create_task(self._detect_cluster_failure())
+        self._tasks.append(task_1)
+        
+        task_2 = asyncio.create_task(self._detect_new_primary())
+        self._tasks.append(task_2)
+        
+        task_3 = asyncio.create_task(self._detect_service_restoration())
+        self._tasks.append(task_3)
+        
+        await asyncio.sleep(0.5)  # Pequeno delay para estabilizar
+        
+        
     async def stop_observing(self):
         """Para observação"""
         if not self._observing:
@@ -269,13 +148,6 @@ class ClusterObserver:
                     return event
         return None
     
-    def get_current_primary(self) -> Optional[str]:
-        """Retorna nó primário atual baseado no estado observado"""
-        for node, status in self._cluster_state.items():
-            if status and status.get("role") == "Leader":
-                return node
-        return None
-    
     async def wait_for_event(self, event_type: str, timeout: float = 60) -> Optional[ClusterEvent]:
         """
         Aguarda um evento específico
@@ -297,24 +169,97 @@ class ClusterObserver:
         
         return None
     
-    def get_cluster_state(self) -> Dict[str, Any]:
-        """Retorna snapshot do estado atual do cluster"""
-        primary = None
-        replicas = []
-        unreachable = []
+    async def _detect_cluster_failure(self):
+        """
+        Detecta falhas no cluster através do Patroni API
+        Identifica quando todos os nós estão com State=running (ausência de líder por muito tempo (loop_wait exceeded))
+        """
+        print(f"🔍 Detectando falhas no cluster...")
         
-        for node, status in self._cluster_state.items():
-            if status.get("accessible") == False:
-                unreachable.append(node)
-            elif status.get("role") == "Leader":
-                primary = node
-            elif status.get("role") == "Replica":
-                replicas.append(node)
+        while self._observing and not self.cluster_failed:
+            try:
+                members = self.patroni.get_cluster_members()
+                
+                if members:
+                    # Verifica se TODOS os membros estão com State=running
+                    all_running = all(
+                        member.get('State') == 'running' 
+                        for member in members
+                    )
+                    
+                    if all_running and len(members) > 1:
+                        event = ClusterEvent(
+                            event_type='failure_detected',
+                            node='cluster',
+                            timestamp=time.time(),
+                            data={
+                                'reason': 'all_nodes_running, loop_wait exceeded',
+                                'members': members
+                            }
+                        )
+                        self._emit_event(event)
+                        print(f"⚠️  ALERTA: Todos os nós com State=running (loop_wait exceeded)")
+                        
+                        self.cluster_failed = True
+                        
+            except Exception as e:
+                print(f"⚠️  Erro ao detectar falha no cluster: {e}")
+            
+            await asyncio.sleep(self.poll_interval)
+
+
+    async def _detect_new_primary(self):
+        """
+        Detecta eleição de novo primário no cluster
+        """
+        print(f"🔍 Detectando eleição de novo primário...")
+    
         
-        return {
-            "timestamp": datetime.utcnow().isoformat(),
-            "primary": primary,
-            "replicas": replicas,
-            "unreachable": unreachable,
-            "total_nodes": len(self.nodes)
-        }
+        while self._observing:
+            try:
+                if self.cluster_failed and not self.cluster_restored:
+                    self.new_primary = self.patroni.get_primary_node()
+                    last_primary = self.old_primary
+                    
+                    if self.new_primary and self.new_primary != last_primary:
+                        event = ClusterEvent(
+                            event_type='new_primary',
+                            node=self.new_primary,
+                            timestamp=time.time(),
+                            data=None
+                        )
+                        self._emit_event(event)
+                        print(f"✅ Novo primário detectado: {self.new_primary}")
+                        last_primary = self.new_primary
+                        
+                        self.cluster_restored = True
+                        
+            except Exception as e:
+                print(f"⚠️  Erro ao detectar novo primário: {e}")
+            
+            await asyncio.sleep(self.poll_interval)
+        
+    async def _detect_service_restoration(self):
+        """
+        Detecta restauração do serviço PostgreSQL via pgpool
+        """
+        print(f"🔍 Detectando restauração do serviço PostgreSQL...")
+        
+        while self._observing:
+            try:
+                if self.cluster_restored:
+                
+                    if self.postgres.is_available():
+                        event = ClusterEvent(
+                            event_type='service_restored',
+                            node='pgpool',
+                            timestamp=time.time(),
+                            data=None
+                        )
+                        self._emit_event(event)
+                        print(f"✅ Serviço PostgreSQL restaurado e disponível via pgpool")
+                        
+            except Exception as e:
+                print(f"⚠️  Erro ao detectar restauração do serviço: {e}")
+            
+            await asyncio.sleep(self.poll_interval)

@@ -78,11 +78,10 @@ class PostgresManager:
                 cursor.close()
                 return result is not None
         except Exception as e:
-            # Log do erro para debug
-            print(f"    [DEBUG] Conexão falhou: {type(e).__name__}: {e}")
+            # print(f"    [DEBUG] Conexão falhou: {type(e).__name__}: {e}")
             return False
-    
-    def wait_until_available(self, max_wait: int = 60, check_interval: float = 1.0) -> bool:
+        
+    def wait_until_available(self, max_wait: int = 60, check_interval: float = 0.1) -> bool:
         """
         Aguarda até que PostgreSQL esteja disponível
         
@@ -102,11 +101,6 @@ class PostgresManager:
                 elapsed = time.time() - start_time
                 print(f"    ✓ PostgreSQL disponível após {elapsed:.2f}s ({attempts} tentativas)")
                 return True
-            
-            # Log a cada 5 segundos para acompanhamento
-            elapsed = time.time() - start_time
-            if attempts % 5 == 0:
-                print(f"    ⏳ Aguardando PostgreSQL... {elapsed:.1f}s/{max_wait}s")
             
             time.sleep(check_interval)
         

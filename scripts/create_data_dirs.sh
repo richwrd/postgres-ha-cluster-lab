@@ -24,7 +24,7 @@ create_base_directory() {
 create_component_directories() {
   echo ""
   echo "📂 Criando diretórios de dados para os componentes do PostgreSQL HA Cluster..."
-  for dir in "$ETCD1_DATA_PATH" "$ETCD2_DATA_PATH" "$ETCD3_DATA_PATH" "$PG1_DATA_PATH" "$PG2_DATA_PATH" "$PG3_DATA_PATH" "$PGPOOL_DATA_PATH"; do
+  for dir in "$ETCD1_DATA_PATH" "$ETCD2_DATA_PATH" "$ETCD3_DATA_PATH" "$PATRONI1_DATA_PATH" "$PATRONI2_DATA_PATH" "$PATRONI3_DATA_PATH" "$PGPOOL_DATA_PATH"; do
     if [ -d "$dir" ]; then
       echo "✅ - Diretório já existe: $dir"
     else
@@ -37,7 +37,7 @@ create_component_directories() {
 set_directory_permissions() {
   echo ""
   echo "🔒 Definindo permissões seguras (700) para os diretórios de dados..."
-  chmod 700 "$ETCD1_DATA_PATH" "$ETCD2_DATA_PATH" "$ETCD3_DATA_PATH" "$PG1_DATA_PATH" "$PG2_DATA_PATH" "$PG3_DATA_PATH" "$PGPOOL_DATA_PATH"
+  chmod 700 "$ETCD1_DATA_PATH" "$ETCD2_DATA_PATH" "$ETCD3_DATA_PATH" "$PATRONI1_DATA_PATH" "$PATRONI2_DATA_PATH" "$PATRONI3_DATA_PATH" "$PGPOOL_DATA_PATH"
   echo "✅ - Permissões definidas com sucesso"
 }
 
@@ -53,9 +53,9 @@ set_etcd_ownership() {
 set_postgres_ownership() {
   echo ""
   echo "👤 Definindo propriedade (999:999) para os diretórios de dados do PostgreSQL..."
-  sudo chown -R 999:999 "$PG1_DATA_PATH"
-  sudo chown -R 999:999 "$PG2_DATA_PATH"
-  sudo chown -R 999:999 "$PG3_DATA_PATH"
+  sudo chown -R 999:999 "$PATRONI1_DATA_PATH"
+  sudo chown -R 999:999 "$PATRONI2_DATA_PATH"
+  sudo chown -R 999:999 "$PATRONI3_DATA_PATH"
   sudo chown -R 999:999 "$PGPOOL_DATA_PATH"
   echo "✅ - Propriedade definida com sucesso"
 }
@@ -66,16 +66,16 @@ display_summary() {
   echo "✅ - ETCD 1: $ETCD1_DATA_PATH"
   echo "✅ - ETCD 2: $ETCD2_DATA_PATH"
   echo "✅ - ETCD 3: $ETCD3_DATA_PATH"
-  echo "✅ - Postgres 1: $PG1_DATA_PATH"
-  echo "✅ - Postgres 2: $PG2_DATA_PATH"
-  echo "✅ - Postgres 3: $PG3_DATA_PATH"
+  echo "✅ - Postgres 1: $PATRONI1_DATA_PATH"
+  echo "✅ - Postgres 2: $PATRONI2_DATA_PATH"
+  echo "✅ - Postgres 3: $PATRONI3_DATA_PATH"
   echo "✅ - Pgpool: $PGPOOL_DATA_PATH"
 }
 
 main() {
   load_env
   validate_env_vars DATA_BASE_PATH ETCD1_DATA_PATH ETCD2_DATA_PATH ETCD3_DATA_PATH \
-  PG1_DATA_PATH PG2_DATA_PATH PG3_DATA_PATH PGPOOL_DATA_PATH
+  PATRONI1_DATA_PATH PATRONI2_DATA_PATH PATRONI3_DATA_PATH PGPOOL_DATA_PATH
   create_base_directory
   create_component_directories
   set_directory_permissions

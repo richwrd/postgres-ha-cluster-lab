@@ -83,9 +83,9 @@ postgresql:
 # ═══════════════════════════════════════════════════════════════════
 bootstrap:
   dcs:
-    ttl: 30
-    loop_wait: 10
-    retry_timeout: 10
+    ttl: 20                       # Recomendado para produção: 15-20s
+    loop_wait: 5                  # Recomendado para produção: 5s (detecção rápida sem overhead)
+    retry_timeout: 5              # Deve ser <= loop_wait
     maximum_lag_on_failover: 1048576
   
   # Opções para o comando initdb.

@@ -100,56 +100,6 @@ class PatroniManager:
                     replicas.append(member.get("Member"))
         return replicas
     
-    def get_node_lag(self, node_name: str) -> Optional[int]:
-        """
-        Obtém o lag de replicação de um nó
-        
-        Args:
-            node_name: Nome do nó
-            
-        Returns:
-            Lag em bytes ou None
-        """
-        members = self.get_cluster_members()
-        if members:
-            for member in members:
-                if member.get("Member") == node_name:
-                    return member.get("Lag in MB")
-        return None
-    
-    def failover(self, candidate: Optional[str] = None) -> bool:
-        """
-        Força um failover
-        
-        Args:
-            candidate: Nome do candidato a primário (None = automático)
-            
-        Returns:
-            True se sucesso
-        """
-        cmd = ["patronictl", "failover", "--force"]
-        if candidate:
-            cmd.extend(["--candidate", candidate])
-        
-        output = self._exec_on_available_node(cmd, timeout=30)
-        return output is not None
-    
-    def switchover(self, candidate: str) -> bool:
-        """
-        Executa switchover planejado
-        
-        Args:
-            candidate: Nome do novo primário
-            
-        Returns:
-            True se sucesso
-        """
-        output = self._exec_on_available_node(
-            ["patronictl", "switchover", "--candidate", candidate, "--force"],
-            timeout=30
-        )
-        return output is not None
-    
     def get_cluster_state(self) -> Dict[str, Any]:
         """
         Obtém estado completo do cluster
@@ -190,33 +140,20 @@ class PatroniManager:
         Verifica se cluster está saudável
         
         Returns:
-            True se há um líder e pelo menos 1 réplica
+            True se há um líder e pelo menos 1 réplica em streaming
         """
-        state = self.get_cluster_state()
-        return state["primary"] is not None and len(state["replicas"]) > 0
-    
-    @staticmethod
-    def get_all_patroni_nodes() -> List[str]:
-        """
-        Obtém lista de todos os nós Patroni do .env
+        members = self.get_cluster_members()
         
-        Returns:
-            Lista com nomes dos containers Patroni
-        """
-        return config.patroni_nodes
-    
-    @staticmethod
-    def get_patroni_node_by_index(index: int) -> str:
-        """
-        Obtém nó Patroni por índice (0, 1, 2)
+        if not members:
+            return False
         
-        Args:
-            index: Índice do nó (0=patroni1, 1=patroni2, 2=patroni3)
-            
-        Returns:
-            Nome do container
-        """
-        nodes = config.patroni_nodes
-        if 0 <= index < len(nodes):
-            return nodes[index]
-        raise IndexError(f"Índice {index} inválido. Deve ser 0-{len(nodes)-1}")
+        has_leader = False
+        has_streaming_replica = False
+        
+        for member in members:
+            if member.get("Role") == "Leader":
+                has_leader = True
+            elif member.get("Role") == "Replica" and member.get("State") == "streaming":
+                has_streaming_replica = True
+        
+        return has_leader and has_streaming_replica

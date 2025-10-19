@@ -9,20 +9,22 @@ class DockerManager:
     """Gerencia operações com containers Docker"""
     
     @classmethod
-    def stop_container(cls, container_name: str, timeout: int = 30) -> bool:
+    def stop_container(cls, container_name: str, timeout: int = 30, graceful: bool = True) -> bool:
         """
         Para um container
         
         Args:
             container_name: Nome do container
             timeout: Timeout em segundos (padrão 30s para parada graceful)
+            graceful: Se True, usa timeout de 10s. Se False, mata imediatamente (timeout 0)
             
         Returns:
             True se sucesso
         """
         try:
+            stop_timeout = "10" if graceful else "0"
             result = subprocess.run(
-                ["docker", "stop", "-t", "10", container_name],
+                ["docker", "stop", "-t", stop_timeout, container_name],
                 capture_output=True,
                 text=True,
                 timeout=timeout
@@ -175,4 +177,46 @@ class DockerManager:
             )
             return result.returncode == 0
         except Exception:
+            return False
+    
+    @classmethod
+    def kill_container(cls, container_name: str, signal: str = "SIGKILL") -> bool:
+        """
+        Mata um container imediatamente com sinal específico
+        
+        Simula falha catastrófica instantânea (queda de energia, kernel panic, etc.)
+        Mais realista para testes de RTO pois não dá tempo de shutdown graceful.
+        
+        Args:
+            container_name: Nome do container
+            signal: Sinal a enviar (SIGKILL, SIGTERM, SIGINT, SIGSTOP)
+                   - SIGKILL: Mata instantaneamente (padrão, mais agressivo)
+                   - SIGTERM: Termina gracefully (similar a docker stop)
+                   - SIGSTOP: Congela o processo (similar a pause, mas a nível de SO)
+            
+        Returns:
+            True se sucesso
+            
+        Examples:
+            >>> # Simula queda de energia (instantâneo)
+            >>> DockerManager.kill_container("patroni-postgres-1", "SIGKILL")
+            
+            >>> # Simula perda de rede (congela sem matar)
+            >>> DockerManager.kill_container("patroni-postgres-1", "SIGSTOP")
+        """
+        try:
+            result = subprocess.run(
+                ["docker", "kill", "--signal", signal, container_name],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode != 0:
+                print(f"❌ Erro ao matar {container_name} com {signal}:")
+                print(f"   stdout: {result.stdout}")
+                print(f"   stderr: {result.stderr}")
+                return False
+            return True
+        except Exception as e:
+            print(f"❌ Exceção ao matar {container_name}: {e}")
             return False

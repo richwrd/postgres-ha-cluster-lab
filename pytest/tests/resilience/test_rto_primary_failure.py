@@ -57,9 +57,6 @@ class TestRTOPrimaryFailure:
         await rto_collector.start_observation()
         print("✓ Cluster sob observação (polling: 100ms)")
         
-        # Aguarda estabilização
-        await asyncio.sleep(0.3)
-        
         # 1. Identifica primário
         print("\n[1/6] 🎯 Identificando nó primário...")
         initial_primary = get_primary_node()
@@ -67,18 +64,19 @@ class TestRTOPrimaryFailure:
         print(f"✓ Primário: {initial_primary}")
         
         # 2. Prepara medição e injeta falha
-        print(f"\n[2/6] 💥 Injetando falha: parando {initial_primary}...")
+        print(f"\n[2/6] 💥 Injetando falha: KILL {initial_primary} (SIGKILL)...")
         
         metrics = rto_collector.start_measurement(
             "primary_complete_failure",
             initial_primary,
-            "stop"
+            "kill"
         )
         
-        # Para container (falha catastrófica)
-        success = docker.stop_container(initial_primary)
-        assert success, "Falha ao parar container"
-        print(f"✓ Container {initial_primary} parado")
+        # Mata container instantaneamente (simula queda de energia/kernel panic)
+        # SIGKILL é mais realista que docker stop pois não dá tempo de shutdown graceful
+        success = docker.kill_container(initial_primary, signal="SIGKILL")
+        assert success, "Falha ao matar container"
+        print(f"✓ Container {initial_primary} morto instantaneamente (SIGKILL)")
         
         # 3. Aguarda DETECÇÃO real pelos nós restantes
         print(f"\n[3/6] 👁️  Observando detecção da falha pelas réplicas...")
@@ -135,6 +133,7 @@ class TestRTOPrimaryFailure:
         # Aguarda estabilização (pode usar um pouco de tempo aqui, não é medido)
         await asyncio.sleep(5)
         print("✓ Cleanup concluído")
+
     
     
     def _print_rto_metrics(self, metrics):
