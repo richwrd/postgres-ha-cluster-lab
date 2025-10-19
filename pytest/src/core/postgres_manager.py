@@ -5,6 +5,7 @@ import psycopg2
 import time
 from typing import Optional, Tuple, Any
 from contextlib import contextmanager
+from .config import config
 
 
 class PostgresManager:
@@ -12,25 +13,26 @@ class PostgresManager:
     
     def __init__(
         self,
-        host: str = "localhost",
-        port: int = 5432,
-        user: str = "postgres",
-        password: str = "postgres",
-        database: str = "postgres"
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        user: Optional[str] = None,
+        password: Optional[str] = None,
+        database: Optional[str] = None
     ):
         """
         Args:
-            host: Host do PostgreSQL
-            port: Porta do PostgreSQL
-            user: Usuário
-            password: Senha
-            database: Database padrão
+            host: Host do PostgreSQL (padrão: localhost para pytest externo)
+            port: Porta do PostgreSQL (padrão: config.pgpool_port)
+            user: Usuário (padrão: config.postgres_user)
+            password: Senha (padrão: config.postgres_password)
+            database: Database padrão (padrão: config.postgres_db)
         """
-        self.host = host
-        self.port = port
-        self.user = user
-        self.password = password
-        self.database = database
+        # Usa localhost por padrão pois pytest roda no host, não no Docker
+        self.host = host or "localhost"
+        self.port = port or config.pgpool_port
+        self.user = user or config.postgres_user
+        self.password = password or config.postgres_password
+        self.database = database or config.postgres_db
     
     @contextmanager
     def get_connection(self, timeout: int = 3):
@@ -75,7 +77,9 @@ class PostgresManager:
                 result = cursor.fetchone()
                 cursor.close()
                 return result is not None
-        except Exception:
+        except Exception as e:
+            # Log do erro para debug
+            print(f"    [DEBUG] Conexão falhou: {type(e).__name__}: {e}")
             return False
     
     def wait_until_available(self, max_wait: int = 60, check_interval: float = 1.0) -> bool:
@@ -90,12 +94,23 @@ class PostgresManager:
             True se ficou disponível, False se timeout
         """
         start_time = time.time()
+        attempts = 0
         
         while time.time() - start_time < max_wait:
+            attempts += 1
             if self.is_available():
+                elapsed = time.time() - start_time
+                print(f"    ✓ PostgreSQL disponível após {elapsed:.2f}s ({attempts} tentativas)")
                 return True
+            
+            # Log a cada 5 segundos para acompanhamento
+            elapsed = time.time() - start_time
+            if attempts % 5 == 0:
+                print(f"    ⏳ Aguardando PostgreSQL... {elapsed:.1f}s/{max_wait}s")
+            
             time.sleep(check_interval)
         
+        print(f"    ❌ PostgreSQL não ficou disponível após {max_wait}s ({attempts} tentativas)")
         return False
     
     def execute_query(self, query: str, params: Optional[Tuple] = None) -> Optional[Any]:

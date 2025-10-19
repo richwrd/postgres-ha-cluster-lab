@@ -1,3 +1,3 @@
 """
-Testes de resiliência (RTO e RPO)
+Testes de resiliência e performance
 """

@@ -2,3 +2,8 @@
 .patroni.env
 .pgpool.env
 /docs
+
+# Ignore Python artifacts
+__pycache__/
+/pytest/.venv
+.pytest_cache/

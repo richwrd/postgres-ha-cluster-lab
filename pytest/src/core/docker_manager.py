@@ -9,30 +9,39 @@ class DockerManager:
     """Gerencia operações com containers Docker"""
     
     @classmethod
-    def stop_container(cls, container_name: str, timeout: int = 10) -> bool:
+    def stop_container(cls, container_name: str, timeout: int = 30) -> bool:
         """
         Para um container
         
         Args:
             container_name: Nome do container
-            timeout: Timeout em segundos
+            timeout: Timeout em segundos (padrão 30s para parada graceful)
             
         Returns:
             True se sucesso
         """
         try:
             result = subprocess.run(
-                ["docker", "stop", container_name],
+                ["docker", "stop", "-t", "10", container_name],
                 capture_output=True,
                 text=True,
                 timeout=timeout
             )
-            return result.returncode == 0
-        except Exception:
+            if result.returncode != 0:
+                print(f"❌ Erro ao parar {container_name}:")
+                print(f"   stdout: {result.stdout}")
+                print(f"   stderr: {result.stderr}")
+                return False
+            return True
+        except subprocess.TimeoutExpired as e:
+            print(f"❌ Timeout ao parar {container_name}: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Exceção ao parar {container_name}: {e}")
             return False
     
     @classmethod
-    def start_container(cls, container_name: str, timeout: int = 10) -> bool:
+    def start_container(cls, container_name: str, timeout: int = 30) -> bool:
         """
         Inicia um container
         
@@ -50,8 +59,17 @@ class DockerManager:
                 text=True,
                 timeout=timeout
             )
-            return result.returncode == 0
-        except Exception:
+            if result.returncode != 0:
+                print(f"❌ Erro ao iniciar {container_name}:")
+                print(f"   stdout: {result.stdout}")
+                print(f"   stderr: {result.stderr}")
+                return False
+            return True
+        except subprocess.TimeoutExpired as e:
+            print(f"❌ Timeout ao iniciar {container_name}: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Exceção ao iniciar {container_name}: {e}")
             return False
     
     @classmethod
@@ -78,12 +96,13 @@ class DockerManager:
             return False
     
     @classmethod
-    def exec_command(cls, container_name: str, command: List[str], timeout: int = 10) -> Optional[str]:
+    def exec_command(cls, container_name: str, command: List[str], timeout: int = 10, exec_options: Optional[List[str]] = None) -> Optional[str]:
         """
         Executa comando dentro do container
         
         Args:
             container_name: Nome do container
+            exec_options: Opções do docker exec (ex: ['-it'], ['-e', 'VAR=value'])
             command: Comando a executar (lista)
             timeout: Timeout em segundos
             
@@ -91,8 +110,14 @@ class DockerManager:
             Output do comando ou None se falhar
         """
         try:
+            cmd = ["docker", "exec"]
+            if exec_options:
+                cmd.extend(exec_options)
+            cmd.append(container_name)
+            cmd.extend(command)
+            
             result = subprocess.run(
-                ["docker", "exec", container_name] + command,
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout
@@ -102,6 +127,7 @@ class DockerManager:
             return None
         except Exception:
             return None
+
     
     @classmethod
     def is_running(cls, container_name: str) -> bool:

@@ -31,10 +31,6 @@ echo "════════════════════════�
 echo "▶️ Etapa 3/3: Gerando arquivos de senha..."
 gosu pgpool sh "${STARTUP_DIR}/03_generate_passwords.sh"
 
-# --- Configurar variáveis de ambiente para arquivos de senha ---
-export PGPASSFILE="/home/pgpool/.pgpass"
-export PCPPASSFILE="/home/pgpool/.pcppass"
-
 echo "══════════════════════════════════════════════════════"
 
 # --- Gerenciamento do Processo ---

@@ -15,10 +15,42 @@ class PatroniManager:
         """
         Args:
             patroni_container: Nome de um container Patroni para executar comandos.
-                              Se None, usa o primeiro nó do .env
+                              Se None, tenta todos os nós do .env em ordem
         """
-        self.patroni_container = patroni_container or config.patroni1_name
+        self.patroni_container = patroni_container
         self.docker = DockerManager()
+    
+    def _exec_on_available_node(self, command: List[str], timeout: int = 10) -> Optional[str]:
+        """
+        Executa comando em um nó Patroni disponível
+        
+        Tenta executar o comando em todos os nós Patroni em ordem até conseguir.
+        Se patroni_container foi especificado, usa apenas ele.
+        
+        Args:
+            command: Comando a executar
+            timeout: Timeout em segundos
+            
+        Returns:
+            Output do comando ou None se falhar em todos
+        """
+        if self.patroni_container:
+            return self.docker.exec_command(
+                self.patroni_container,
+                command,
+                timeout=timeout
+            )
+        
+        for node in config.patroni_nodes:
+            output = self.docker.exec_command(
+                node,
+                command,
+                timeout=timeout
+            )
+            if output is not None:
+                return output
+        
+        return None
     
     def get_cluster_members(self) -> Optional[List[Dict[str, Any]]]:
         """
@@ -27,8 +59,7 @@ class PatroniManager:
         Returns:
             Lista de dicionários com informações dos membros
         """
-        output = self.docker.exec_command(
-            self.patroni_container,
+        output = self._exec_on_available_node(
             ["patronictl", "list", "-f", "json"],
             timeout=10
         )
@@ -100,11 +131,7 @@ class PatroniManager:
         if candidate:
             cmd.extend(["--candidate", candidate])
         
-        output = self.docker.exec_command(
-            self.patroni_container,
-            cmd,
-            timeout=30
-        )
+        output = self._exec_on_available_node(cmd, timeout=30)
         return output is not None
     
     def switchover(self, candidate: str) -> bool:
@@ -117,8 +144,7 @@ class PatroniManager:
         Returns:
             True se sucesso
         """
-        output = self.docker.exec_command(
-            self.patroni_container,
+        output = self._exec_on_available_node(
             ["patronictl", "switchover", "--candidate", candidate, "--force"],
             timeout=30
         )
@@ -152,9 +178,9 @@ class PatroniManager:
                 
                 if role == "Leader":
                     state["primary"] = name
-                elif status == "running":
+                elif role == "Replica" and status == "streaming":
                     state["replicas"].append(name)
-                else:
+                elif status not in ["running", "streaming"]:
                     state["failed_nodes"].append(name)
         
         return state

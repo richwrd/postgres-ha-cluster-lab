@@ -54,10 +54,11 @@ mkdir -p "$(dirname "${POOL_PASSWD_PATH}")"
 {
   pg_md5 -m -u "${PGPOOL_HEALTHCHECK_USER}" "${PGPOOL_HEALTHCHECK_PASSWORD}"
   pg_md5 -m -u "${PGPOOL_SR_CHECK_USER}" "${PGPOOL_SR_CHECK_PASSWORD}"
+  pg_md5 -m -u "${TEST_DB_USERNAME}" "${TEST_DB_PASSWORD}"
 } > "${POOL_PASSWD_PATH}"
 
 # ------------------------------------------------------------------------------------
-# pcp.conf: Senhas para autenticar usuários PCP (porta de administração 9898)
+# pcp.conf: Usado pelo SERVIDOR Pgpool-II para validar credenciais dos clientes PCP que se conectam à porta 9898
 # Formato: usuario:md5hash_simples
 # ------------------------------------------------------------------------------------
 echo "Gerando pcp.conf..."

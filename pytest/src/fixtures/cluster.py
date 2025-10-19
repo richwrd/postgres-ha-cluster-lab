@@ -43,3 +43,5 @@ def get_primary_node(patroni_manager):
 def get_replica_nodes(patroni_manager):
     """Retorna função para obter nós réplica"""
     return lambda: patroni_manager.get_replica_nodes()
+
+

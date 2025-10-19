@@ -209,6 +209,11 @@ class Config:
         """Senha do admin do PgPool"""
         return self.get('PGPOOL_PCP_PASSWORD', 'admin')
     
+    @property
+    def pgpool_port(self) -> int:
+        """Porta do PgPool no host (para conexões externas)"""
+        return int(self.get('PGPOOL_HOST_PORT', '5432'))
+    
     def __repr__(self) -> str:
         """Representação para debug"""
         return (
