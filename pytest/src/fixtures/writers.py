@@ -15,7 +15,7 @@ def output_base_dir():
 @pytest.fixture
 def rto_writer(run_id, output_base_dir):
     """Writer JSONL para métricas RTO"""
-    output_dir = output_base_dir / "resilience"
+    output_dir = output_base_dir / "resilience" / "rto"
     writer = JSONLWriter(output_dir, "rto", run_id)
     
     # Escreve metadados iniciais
@@ -30,7 +30,7 @@ def rto_writer(run_id, output_base_dir):
 @pytest.fixture
 def rpo_writer(run_id, output_base_dir):
     """Writer JSONL para métricas RPO"""
-    output_dir = output_base_dir / "resilience"
+    output_dir = output_base_dir / "resilience" / "rpo"
     writer = JSONLWriter(output_dir, "rpo", run_id)
     
     # Escreve metadados iniciais

@@ -216,6 +216,19 @@ class PostgresManager:
                 return result[0] if result else None
         except Exception:
             return None
+        
+    def drop_test_table(self, table_name: str = "rto_test") -> bool:
+        """
+        Remove tabela de teste
+        
+        Args:
+            table_name: Nome da tabela
+            
+        Returns:
+            True se sucesso
+        """
+        query = f"DROP TABLE IF EXISTS {table_name}"
+        return self.execute_write(query)
     
     def count_records(self, table_name: str = "rto_test") -> Optional[int]:
         """

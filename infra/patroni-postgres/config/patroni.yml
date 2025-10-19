@@ -59,6 +59,9 @@ postgresql:
     hot_standby: "on"
     max_wal_senders: 10
     max_replication_slots: 10
+
+    #synchronous_commit: "on"  # Ative se desejar replicação síncrona.
+    #synchronous_standby_names: '*'  # Ative se desejar replicação síncrona. Nomes dos nós síncronos.
     
     # --- Gerenciamento de WAL e Checkpoints ---
     archive_mode: "off" # Ideal manter "off" até integrar com uma ferramenta de backup como pgBackRest.
