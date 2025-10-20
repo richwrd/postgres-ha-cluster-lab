@@ -1,0 +1,27 @@
+services:
+  pgbench-client:
+    image: postgres:17
+    container_name: pgbench-client
+    hostname: pgbench-client
+    command: ["sleep", "infinity"]
+    environment:
+      PGPASSWORD: postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --version"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      # - ha-network
+      - postgres-baseline-network
+
+networks:
+  # ha-network:
+  #   external: true
+  postgres-baseline-network:
+    external: true

@@ -1,0 +1,55 @@
+services:
+  postgres-baseline:
+    image: postgres:17
+    container_name: postgres-baseline
+    hostname: postgres-baseline
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-baseline-data:/var/lib/postgresql/data
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=4GB
+      -c effective_cache_size=12GB
+      -c maintenance_work_mem=1GB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=32MB
+      -c min_wal_size=2GB
+      -c max_wal_size=8GB
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 16G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - postgres-baseline-network
+
+networks:
+  postgres-baseline-network:
+    driver: bridge
+    name: postgres-baseline-network
+
+volumes:
+  postgres-baseline-data:
+      name: postgres-baseline-data
+      driver: local
+      driver_opts:
+        type: none
+        o: bind
+        device: ${POSTGRES_BASELINE_DATA_PATH}
+  

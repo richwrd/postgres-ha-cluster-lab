@@ -43,9 +43,24 @@ def rpo_writer(run_id, output_base_dir):
 
 
 @pytest.fixture
-def performance_writer(run_id, output_base_dir):
+def performance_writer_baseline(run_id, output_base_dir):
     """Writer JSONL para métricas de performance"""
-    output_dir = output_base_dir / "performance"
+    output_dir = output_base_dir / "performance" / "baseline"
+    writer = JSONLWriter(output_dir, "performance", run_id)
+    
+    # Escreve metadados iniciais
+    writer.write_metadata({
+        "test_type": "performance",
+        "run_id": run_id
+    })
+    
+    return writer
+
+
+@pytest.fixture
+def performance_writer_cluster(run_id, output_base_dir):
+    """Writer JSONL para métricas de performance"""
+    output_dir = output_base_dir / "performance" / "cluster"
     writer = JSONLWriter(output_dir, "performance", run_id)
     
     # Escreve metadados iniciais

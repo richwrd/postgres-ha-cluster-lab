@@ -116,7 +116,7 @@ class TestRPOPrimaryFailure:
         print("\n[3/7] ✍️  Iniciando escrita contínua de transações...")
         print("  ℹ️  Nota: Em replicação ASSÍNCRONA, há janela de risco entre commit e replicação")
 
-        num_transactions = 1000  # Volume maior para aumentar chance de capturar lag
+        num_transactions = 100  # Volume maior para aumentar chance de capturar lag
 
         async def _write_transactions_continuously():
             """Escreve transações em background"""

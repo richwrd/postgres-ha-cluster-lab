@@ -17,7 +17,7 @@ class TestPerformanceCluster:
         cluster_healthy
     ):
         """
-        3.4.2 - Teste de Performance (Cluster HA)
+        Teste de Performance (Cluster HA)
         
         Cenário 2: Cluster HA com PgPool-II
         Carga: SELECT-only (leitura com load balancing)
