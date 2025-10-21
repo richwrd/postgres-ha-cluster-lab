@@ -19,7 +19,7 @@ RUN python3 -m venv /opt/patroni \
 
 ENV PATH="/opt/patroni/bin:$PATH"
 
-COPY config/patroni.yml /etc/patroni.yml
+COPY config/patroni.yml /etc/patroni/patroni.yml
 COPY config/scripts/post_bootstrap.sh /etc/patroni/scripts/post_bootstrap.sh
 
 RUN chmod +x /etc/patroni/scripts/post_bootstrap.sh
@@ -31,4 +31,4 @@ USER postgres
 
 ENTRYPOINT ["patroni"]
 
-CMD ["/etc/patroni.yml"]
+CMD ["/etc/patroni/patroni.yml"]

@@ -27,7 +27,8 @@ class PerformanceCollector:
         clients: int = 10,
         threads: int = 4,
         duration: int = 60,
-        workload: str = "select-only"
+        workload: str = "select-only",
+        reconnect: bool = False
     ) -> PerformanceMetrics:
         """
         Executa teste de carga com pgbench
@@ -45,6 +46,7 @@ class PerformanceCollector:
             threads: Número de threads
             duration: Duração do teste em segundos
             workload: Tipo de carga ('select-only', 'simple-update', 'mixed')
+            reconnect: Se True, usa flag -C (reconectar a cada transação)
             
         Returns:
             PerformanceMetrics com resultados
@@ -72,6 +74,10 @@ class PerformanceCollector:
             "-P", "5",  # Progress a cada 5 segundos
         ]
         
+        # Adiciona flag de reconexão se solicitado
+        if reconnect:
+            pgbench_cmd.append("-C")
+        
         # Adiciona flag de workload
         if workload == "select-only":
             pgbench_cmd.append("-S")
@@ -82,21 +88,36 @@ class PerformanceCollector:
         pgbench_cmd.append(database)
         
         # Executa pgbench usando DockerManager
-        print(f"\n🔧 Executando pgbench: -h {host} -p {port} -c {clients} -j {threads} -T {duration}s")
+        print(f"\n🔧 Executando pgbench: {' '.join(pgbench_cmd)}")
         
-        result = DockerManager.exec_command(
-            container_name=container_name,
-            command=pgbench_cmd,
-            exec_options=["-e", f"PGPASSWORD={password}"],
-            timeout=duration + 30
-        )
-        
-        if result:
-            metrics.pgbench_output = result
-            print(f"\n📊 Output do pgbench:\n{result}")
-            self._parse_pgbench_output(metrics, result)
-        else:
-            print(f"❌ Erro ao executar pgbench")
+        try:
+            result = DockerManager.exec_command(
+                container_name=container_name,
+                command=pgbench_cmd,
+                exec_options=["-e", f"PGPASSWORD={password}"],
+                timeout=duration + 3600
+            )
+            
+            if result:
+                metrics.pgbench_output = result
+                print(f"\n📊 Output do pgbench:\n{result}")
+                self._parse_pgbench_output(metrics, result)
+            else:
+                print(f"❌ Erro ao executar pgbench - comando retornou None")
+                print(f"   Verifique se o container '{container_name}' está rodando")
+                print(f"   Verifique se o host '{host}' está acessível")
+                
+        except subprocess.TimeoutExpired as e:
+            print(f"❌ TIMEOUT ao executar pgbench:")
+            print(f"   O comando excedeu o timeout de {duration + 3600}s")
+            print(f"   Comando: {' '.join(pgbench_cmd)}")
+            
+        except Exception as e:
+            print(f"❌ ERRO ao executar pgbench:")
+            print(f"   Tipo: {type(e).__name__}")
+            print(f"   Mensagem: {str(e)}")
+            import traceback
+            print(f"   Traceback:\n{traceback.format_exc()}")
         
         metrics.calculate_metrics()
         
@@ -164,8 +185,10 @@ class PerformanceCollector:
             if metrics.tps_total is None or metrics.tps_total == 0.0:
                 metrics.tps_total = tps_value
         
-        # TPS including connections (formato antigo)
-        match = re.search(r'tps = ([\d.]+) \(including connections', output)
+        # TPS including connections/reconnection (formato antigo e com -C)
+        # Ex: tps = 152.619075 (including connections establishing)
+        # Ex: tps = 152.619075 (including reconnection times)
+        match = re.search(r'tps = ([\d.]+) \(including (?:connections|reconnection)', output)
         if match:
             metrics.tps_including_connections = float(match.group(1))
             if metrics.tps_total is None or metrics.tps_total == 0.0:
@@ -188,7 +211,16 @@ class PerformanceCollector:
         if match:
             metrics.latency_stddev = float(match.group(1))
         
-        # Initial connection time
+        # Average connection time (quando usa flag -C)
+        # Ex: average connection time = 47.944 ms
+        match = re.search(r'average connection time = ([\d.]+) ms', output)
+        if match:
+            # Guarda no mesmo campo que initial_connection_time
+            # Podemos adicionar um campo separado se necessário
+            if not metrics.initial_connection_time:
+                metrics.initial_connection_time = float(match.group(1))
+        
+        # Initial connection time (sem flag -C)
         # Ex: initial connection time = 84.418 ms
         match = re.search(r'initial connection time = ([\d.]+) ms', output)
         if match:
@@ -242,6 +274,7 @@ class PerformanceCollector:
         """
         # Verifica se database já foi inicializado (tabela pgbench_accounts existe)
         print(f"\n🔍 Verificando se database pgbench já está inicializado...")
+        print(f"   Conectando em: {host}:{port} (database: {database}, user: {user})")
         
         check_query = "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'pgbench_accounts');"
         check_cmd = [
@@ -253,20 +286,30 @@ class PerformanceCollector:
             "-tAc", check_query
         ]
         
-        check_result = DockerManager.exec_command(
-            container_name=container_name,
-            command=check_cmd,
-            exec_options=["-e", f"PGPASSWORD={password}"],
-            timeout=10
-        )
-        
-        if check_result and check_result.strip() == 't':
-            print(f"✅ Database pgbench já inicializado (tabela pgbench_accounts existe)")
-            print(f"   Pulando inicialização para economizar tempo")
-            return True
-        
-        print(f"⚠️  Database não inicializado ou tabela não encontrada")
+        try:
+            check_result = DockerManager.exec_command(
+                container_name=container_name,
+                command=check_cmd,
+                exec_options=["-e", f"PGPASSWORD={password}"],
+                timeout=10
+            )
+            
+            if check_result and check_result.strip() == 't':
+                print(f"✅ Database pgbench já inicializado (tabela pgbench_accounts existe)")
+                print(f"   Pulando inicialização para economizar tempo")
+                return True
+            
+            print(f"⚠️  Database não inicializado ou tabela não encontrada")
+            
+        except Exception as e:
+            print(f"⚠️  Erro ao verificar database (vamos tentar inicializar):")
+            print(f"   {type(e).__name__}: {str(e)}")
         print(f"\n🔧 Inicializando database pgbench (scale={scale})...")
+        print(f"   Container: {container_name}")
+        print(f"   Host: {host}:{port}")
+        print(f"   Database: {database}")
+        print(f"   User: {user}")
+        print(f"   Scale: {scale} (~{scale * 16}MB)")
         print(f"   Isso pode levar alguns minutos para databases grandes...")
         
         # Monta comando pgbench
@@ -280,9 +323,15 @@ class PerformanceCollector:
             database
         ]
         
-        print(f"🔧 Executando: pgbench -h {host} -p {port} -U {user} -i -s {scale} {database}")
+        print(f"\n🔧 Executando: pgbench -h {host} -p {port} -U {user} -i -s {scale} {database}")
         
         try:
+            # Primeiro, verifica se o container existe e está rodando
+            if not DockerManager.is_running(container_name):
+                print(f"❌ Container '{container_name}' não está rodando!")
+                print(f"   Execute: docker ps | grep {container_name}")
+                return False
+            
             # Executa inicialização usando DockerManager
             init_result = DockerManager.exec_command(
                 container_name=container_name,
@@ -294,12 +343,25 @@ class PerformanceCollector:
             if init_result is not None:
                 print(f"\n✅ Database inicializado com sucesso!")
                 print(f"   Output completo:\n{init_result}")
-                
                 return True
             else:
                 print(f"\n❌ Erro ao inicializar pgbench - comando retornou None")
+                print(f"   Possíveis causas:")
+                print(f"   1. Container '{container_name}' não está acessível")
+                print(f"   2. Host '{host}' não está respondendo na porta {port}")
+                print(f"   3. Credenciais incorretas (user: {user})")
+                print(f"   4. Database '{database}' não existe")
+                print(f"\n   Teste manualmente:")
+                print(f"   docker exec {container_name} psql -h {host} -p {port} -U {user} -d {database} -c 'SELECT 1;'")
                 return False
                 
+        except subprocess.TimeoutExpired as e:
+            print(f"\n❌ TIMEOUT ao inicializar database pgbench:")
+            print(f"   O comando excedeu o timeout de 7200s (2 horas)")
+            print(f"   Para scale={scale}, isso pode indicar problemas de performance")
+            print(f"   ou recursos insuficientes no sistema")
+            return False
+            
         except Exception as e:
             print(f"\n❌ ERRO ao inicializar database pgbench:")
             print(f"   Tipo: {type(e).__name__}")

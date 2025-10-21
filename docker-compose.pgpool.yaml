@@ -16,8 +16,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.25'
-          memory: 1G
+          cpus: '0.70'
+          memory: 3G
     
     entrypoint: /opt/pgpool/bin/scripts/entrypoint.sh
     command:

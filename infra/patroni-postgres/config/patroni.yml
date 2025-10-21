@@ -48,8 +48,11 @@ postgresql:
       username: ${PATRONI_REPLICATION_USERNAME}
       password: ${PATRONI_REPLICATION_PASSWORD}
 
-  # Parâmetros que serão escritos no postgresql.conf.
+  # Parâmetros locais (usados no bootstrap inicial)
+  # Cria usuários e configurações básicas que o Patroni precisa
   parameters:
+    timezone: 'America/Sao_Paulo'
+
     # --- Segurança e Autenticação ---
     password_encryption: "md5"
     ssl: "off"  # Desabilita SSL para simplificar a replicação
@@ -60,22 +63,10 @@ postgresql:
     max_wal_senders: 10
     max_replication_slots: 10
 
-    #synchronous_commit: "on"  # Ative se desejar replicação síncrona.
-    #synchronous_standby_names: '*'  # Ative se desejar replicação síncrona. Nomes dos nós síncronos.
-    
     # --- Gerenciamento de WAL e Checkpoints ---
     archive_mode: "off" # Ideal manter "off" até integrar com uma ferramenta de backup como pgBackRest.
     archive_command: "/bin/true"
-
-    # --- Tuning de Performance (Valores de exemplo, ajuste conforme seu ambiente) ---
-    shared_buffers: 1GB             # Ajuste para ~25% da memória do contêiner.
-    effective_cache_size: 3GB       # Ajuste para ~75% da memória.
-    work_mem: 64MB
-    maintenance_work_mem: 256MB
-    checkpoint_timeout: 15min
-    checkpoint_completion_target: 0.9
-    random_page_cost: 1.1           # Otimizado para SSDs.
-    effective_io_concurrency: 200   # Otimizado para SSDs.
+    
 
 # ═══════════════════════════════════════════════════════════════════
 # --- BOOTSTRAP ---
@@ -87,7 +78,48 @@ bootstrap:
     loop_wait: 5                  # Recomendado para produção: 5s (detecção rápida sem overhead)
     retry_timeout: 5              # Deve ser <= loop_wait
     maximum_lag_on_failover: 1048576
-  
+    postgresql:  
+      parameters:
+        timezone: 'America/Sao_Paulo'
+
+        # --- Replicação e HA ---
+        wal_level: replica
+        hot_standby: "on"
+        max_wal_senders: 10
+        max_replication_slots: 10
+        #synchronous_commit: "on"  # Ative se desejar replicação síncrona.
+        #synchronous_standby_names: '*'  # Nomes dos nós síncronos.
+        
+        # --- Tuning de Performance ---
+        # Ajustado para: 1 CPU / 4GB RAM por nó
+        max_connections: 300                    # Aumentado para suportar burst via PgPool (200x4=800)
+        max_locks_per_transaction: 64           # Padrão aumentado (32 pode ser insuficiente em cargas altas)
+        max_worker_processes: 8                 # Permite paralelismo em consultas complexas
+        max_parallel_workers: 8                 # Permite até 8 workers paralelos
+        max_prepared_transactions: 0            # Desabilitado (ajuste conforme necessário)
+        track_commit_timestamp: off             # Desabilitado para reduzir overhead
+
+        shared_buffers: 1GB                     # ~25% da RAM (4GB × 0.25 = 1GB)
+        effective_cache_size: 3GB               # ~75% da RAM (4GB × 0.75 = 3GB)
+        work_mem: 4MB                           # Reduzido: 1GB / 300 conexões ≈ 3.4MB
+        maintenance_work_mem: 256MB             # ~6% da RAM para operações de manutenção
+        checkpoint_timeout: 15min               # Mantido
+        checkpoint_completion_target: 0.9       # Mantido
+        default_statistics_target: 100          # Mantido
+        random_page_cost: 1.1                   # Mantido (SSD)
+        effective_io_concurrency: 200           # Mantido (SSD)
+        min_wal_size: 512MB                     # Reduzido de 2GB (pouca RAM disponível)
+        max_wal_size: 2GB                       # Reduzido de 8GB (pouca RAM disponível)
+        wal_buffers: 16MB                       # Mantido (padrão adequado)
+
+        # --- Gerenciamento de WAL e Checkpoints ---
+        archive_mode: "off" # Ideal manter "off" até integrar com uma ferramenta de backup como pgBackRest.
+        archive_command: "/bin/true"
+
+        # --- Segurança e Autenticação ---
+        password_encryption: "md5"
+        ssl: "off"  # Desabilita SSL para simplificar a replicação
+
   # Opções para o comando initdb.
   initdb:
     - encoding: "UTF8"
@@ -97,7 +129,7 @@ bootstrap:
   pg_hba:
     - local all all trust
     - host all healthchecker 0.0.0.0/0 trust
-    - host replication replicator 0.0.0.0/0 trust
+    - host replication replicator 0.0.0.0/0 md5
     - host all all 0.0.0.0/0 md5
     
   # Script customizado para rodar APÓS o bootstrap inicial do cluster.

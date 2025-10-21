@@ -43,9 +43,10 @@ echo "*:9898:${PGPOOL_PCP_USER}:${PGPOOL_PCP_PASSWORD}" > "${HOME}/.pcppass"
 # Formato: usuario:md5hash
 # O hash MD5 do PostgreSQL é calculado como: md5(senha + usuario)
 #
-# IMPORTANTE: Com enable_pool_hba = on, este arquivo só precisa conter as credenciais
-# dos usuários INTERNOS do PgPool (healthchecker, replicator). As senhas dos usuários
-# de aplicação são repassadas diretamente ao PostgreSQL via pass-through authentication.
+# IMPORTANTE: Mesmo com enable_pool_hba = on, TODAS as senhas dos usuários que se
+# conectam através do Pgpool-II precisam estar neste arquivo. O Pgpool usa este
+# arquivo para validar as credenciais antes de repassá-las aos backends PostgreSQL.
+# Inclui tanto usuários internos (healthcheck, sr_check) quanto usuários de aplicação.
 # ------------------------------------------------------------------------------------
 echo "Gerando pool_passwd..."
 mkdir -p "$(dirname "${POOL_PASSWD_PATH}")"

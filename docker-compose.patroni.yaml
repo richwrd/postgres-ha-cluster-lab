@@ -62,6 +62,7 @@ services:
 
     volumes:
       - patroni-postgres-1-data:/var/lib/postgresql/data/pgdata
+      - ./infra/patroni-postgres/config/patroni.yml:/etc/patroni/patroni.yml:ro
 
 
   # --- PATRONI POSTGRES NODES ---
@@ -83,6 +84,7 @@ services:
       - "${PATRONI2_HOST_PORT}:5432"
     volumes:
       - patroni-postgres-2-data:/var/lib/postgresql/data/pgdata
+      - ./infra/patroni-postgres/config/patroni.yml:/etc/patroni/patroni.yml:ro
 
 
   # --- PATRONI POSTGRES NODES ---
@@ -104,6 +106,7 @@ services:
       - "${PATRONI3_HOST_PORT}:5432"
     volumes:
       - patroni-postgres-3-data:/var/lib/postgresql/data/pgdata
+      - ./infra/patroni-postgres/config/patroni.yml:/etc/patroni/patroni.yml:ro
 
 # ═══════════════════════════════════════════════════════════════════
 # NOTA: Volumes e Networks são gerenciados pelo docker-compose.yaml principal

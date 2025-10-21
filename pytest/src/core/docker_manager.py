@@ -124,10 +124,35 @@ class DockerManager:
                 text=True,
                 timeout=timeout
             )
+            
             if result.returncode == 0:
                 return result.stdout
+            else:
+                # Imprime informações de erro para debug
+                print(f"❌ Comando docker exec falhou (exit code: {result.returncode})")
+                print(f"   Container: {container_name}")
+                print(f"   Comando: {' '.join(command)}")
+                if result.stdout:
+                    print(f"   STDOUT: {result.stdout}")
+                if result.stderr:
+                    print(f"   STDERR: {result.stderr}")
+                return None
+                
+        except subprocess.TimeoutExpired as e:
+            print(f"❌ Timeout ao executar comando no container '{container_name}'")
+            print(f"   Timeout: {timeout}s")
+            print(f"   Comando: {' '.join(command)}")
+            if e.stdout:
+                print(f"   Output parcial (stdout): {e.stdout.decode() if isinstance(e.stdout, bytes) else e.stdout}")
+            if e.stderr:
+                print(f"   Error parcial (stderr): {e.stderr.decode() if isinstance(e.stderr, bytes) else e.stderr}")
             return None
-        except Exception:
+            
+        except Exception as e:
+            print(f"❌ Exceção ao executar comando no container '{container_name}'")
+            print(f"   Tipo: {type(e).__name__}")
+            print(f"   Mensagem: {str(e)}")
+            print(f"   Comando: {' '.join(command)}")
             return None
 
     

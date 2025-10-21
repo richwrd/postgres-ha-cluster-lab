@@ -25,8 +25,8 @@ x-etcd-resources: &etcd-resources
   deploy:
     resources:
       limits:
-        cpus: '0.25'
-        memory: 1G
+        cpus: '0.10'
+        memory: 256M
 
 # ═══════════════════════════════════════════════════════════════════
 # SERVIÇOS

@@ -14,7 +14,7 @@ services:
       - postgres-baseline-data:/var/lib/postgresql/data
     command: >
       postgres
-      -c max_connections=200
+      -c max_connections=150
       -c shared_buffers=4GB
       -c effective_cache_size=12GB
       -c maintenance_work_mem=1GB
