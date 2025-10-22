@@ -17,9 +17,9 @@ class ClusterConfig:
     SCENARIO = "cluster_with_pgpool"
     
     # Carga
-    THREADS = 8
-    DURATION = 60
-    SCALE = 10 # 2200  # ~32GB (DEVE SER O DOBRO DA QT DE RAM DO SISTEMA)
+    THREADS = 4
+    DURATION = 60 #180
+    SCALE = 2000  # (DEVE SER MAIOR QUE A QT DE RAM DO SISTEMA! SCALE 1 =~ 16MB)
 
 @pytest.mark.cluster_performance
 class TestPerformanceCluster:
@@ -35,6 +35,18 @@ class TestPerformanceCluster:
     THREADS = ClusterConfig.THREADS
     DURATION = ClusterConfig.DURATION
     SCALE = ClusterConfig.SCALE
+    
+    # Containers para monitoramento Docker Stats
+    CONTAINERS_TO_MONITOR = [
+        "etcd-1",
+        "etcd-2",
+        "etcd-3",
+        "patroni-postgres-1",
+        "patroni-postgres-2",
+        "patroni-postgres-3",
+        "pgpool",
+        "pgbench-client"
+    ]
     
     # Flag para controlar se já inicializou o database
     _db_initialized = False
@@ -92,6 +104,8 @@ class TestPerformanceCluster:
         client_count,
         performance_collector,
         performance_writer_cluster,
+        docker_stats_collector,
+        docker_stats_writer,
         get_primary_node
     ):
         """
@@ -112,6 +126,10 @@ class TestPerformanceCluster:
         
         # Garante que o database foi inicializado (só executa na primeira vez)
         self._ensure_database_initialized(performance_collector, get_primary_node)
+
+        # Inicia coleta de Docker Stats
+        stats_collector = docker_stats_collector(self.CONTAINERS_TO_MONITOR, interval=2.0)
+        stats_collector.start()
 
         # Executa teste de carga
         print("\nExecutando teste de carga...")
@@ -135,11 +153,17 @@ class TestPerformanceCluster:
             workload="select-only"
         )
         
+        # Para coleta de Docker Stats
+        stats_collector.stop()
+        docker_metrics = stats_collector.get_metrics(f"cluster_select_only_{client_count}clients")
+        
         # Salva métricas
         performance_writer_cluster.write(metrics)
+        docker_stats_writer.write(docker_metrics.to_dict())
         
         # Exibe resultados
         self._print_performance_metrics(metrics)
+        self._print_docker_stats(docker_metrics)
         
         # Valida que teste executou
         assert metrics.total_transactions > 0, "Nenhuma transação executada"
@@ -156,6 +180,8 @@ class TestPerformanceCluster:
         client_count,
         performance_collector,
         performance_writer_cluster,
+        docker_stats_collector,
+        docker_stats_writer,
         get_primary_node
     ):
         """
@@ -173,6 +199,10 @@ class TestPerformanceCluster:
         
         # Garante que o database foi inicializado (só executa na primeira vez)
         self._ensure_database_initialized(performance_collector, get_primary_node)
+        
+        # Inicia coleta de Docker Stats
+        stats_collector = docker_stats_collector(self.CONTAINERS_TO_MONITOR, interval=2.0)
+        stats_collector.start()
         
         print("\nExecutando teste de carga mista...")
         print(f"  Clientes: {client_count}, Threads: {self.THREADS}, Duração: {self.DURATION}s")
@@ -193,8 +223,15 @@ class TestPerformanceCluster:
             workload="mixed"
         )
 
+        # Para coleta de Docker Stats
+        stats_collector.stop()
+        docker_metrics = stats_collector.get_metrics(f"cluster_mixed_{client_count}clients")
+
         performance_writer_cluster.write(metrics)
+        docker_stats_writer.write(docker_metrics.to_dict())
+        
         self._print_performance_metrics(metrics)
+        self._print_docker_stats(docker_metrics)
         
         assert metrics.total_transactions > 0
         print(f"\n✅ Cluster (mixed) concluído ({client_count} clientes)")
@@ -206,6 +243,8 @@ class TestPerformanceCluster:
         client_count,
         performance_collector,
         performance_writer_cluster,
+        docker_stats_collector,
+        docker_stats_writer,
         get_primary_node
     ):
         """
@@ -232,6 +271,10 @@ class TestPerformanceCluster:
         # Garante que o database foi inicializado (só executa na primeira vez)
         self._ensure_database_initialized(performance_collector, get_primary_node)
 
+        # Inicia coleta de Docker Stats
+        stats_collector = docker_stats_collector(self.CONTAINERS_TO_MONITOR, interval=2.0)
+        stats_collector.start()
+
         # Executa teste de carga com reconexão
         print("\nExecutando teste de carga com reconexão...")
         print(f"  Clientes: {client_count}, Threads: {self.THREADS}, Duração: {self.DURATION}s")
@@ -256,11 +299,17 @@ class TestPerformanceCluster:
             reconnect=True  # Flag -C
         )
         
+        # Para coleta de Docker Stats
+        stats_collector.stop()
+        docker_metrics = stats_collector.get_metrics(f"cluster_select_only_reconnect_{client_count}clients")
+        
         # Salva métricas
         performance_writer_cluster.write(metrics)
+        docker_stats_writer.write(docker_metrics.to_dict())
         
         # Exibe resultados
         self._print_performance_metrics(metrics)
+        self._print_docker_stats(docker_metrics)
         
         # Valida que teste executou
         assert metrics.total_transactions > 0, "Nenhuma transação executada"
@@ -278,6 +327,8 @@ class TestPerformanceCluster:
         client_count,
         performance_collector,
         performance_writer_cluster,
+        docker_stats_collector,
+        docker_stats_writer,
         get_primary_node
     ):
         """
@@ -305,6 +356,10 @@ class TestPerformanceCluster:
         # Garante que o database foi inicializado (só executa na primeira vez)
         self._ensure_database_initialized(performance_collector, get_primary_node)
 
+        # Inicia coleta de Docker Stats
+        stats_collector = docker_stats_collector(self.CONTAINERS_TO_MONITOR, interval=2.0)
+        stats_collector.start()
+
         # Executa teste de carga mista com reconexão
         print("\nExecutando teste de carga mista com reconexão...")
         print(f"  Clientes: {client_count}, Threads: {self.THREADS}, Duração: {self.DURATION}s")
@@ -329,11 +384,17 @@ class TestPerformanceCluster:
             reconnect=True  # Flag -C
         )
         
+        # Para coleta de Docker Stats
+        stats_collector.stop()
+        docker_metrics = stats_collector.get_metrics(f"cluster_mixed_reconnect_{client_count}clients")
+        
         # Salva métricas
         performance_writer_cluster.write(metrics)
+        docker_stats_writer.write(docker_metrics.to_dict())
         
         # Exibe resultados
         self._print_performance_metrics(metrics)
+        self._print_docker_stats(docker_metrics)
         
         # Valida que teste executou
         assert metrics.total_transactions > 0, "Nenhuma transação executada"
@@ -404,5 +465,33 @@ class TestPerformanceCluster:
                 print(f"Tempo médio conexão:   {metrics.initial_connection_time:.2f} ms (flag -C ativa)")
             else:
                 print(f"Tempo conexão inicial: {metrics.initial_connection_time:.2f} ms")
+        
+        print("="*70)
+    
+    def _print_docker_stats(self, metrics):
+        """Exibe estatísticas do Docker formatadas"""
+        print("\n" + "="*70)
+        print("ESTATÍSTICAS DOCKER")
+        print("="*70)
+        print(f"Duração da coleta: {metrics.duration_seconds:.2f}s")
+        print(f"Containers monitorados: {len(metrics.containers)}")
+        
+        for container_name, stats in metrics.containers.items():
+            print("\n" + "-"*70)
+            print(f"Container: {container_name}")
+            print("-"*70)
+            print(f"  CPU:")
+            print(f"    Média:  {stats.cpu_percent_avg:.2f}%")
+            print(f"    Máxima: {stats.cpu_percent_max:.2f}%")
+            print(f"  Memória:")
+            print(f"    Média:  {stats.memory_usage_bytes_avg / (1024**2):.2f} MB ({stats.memory_percent_avg:.2f}%)")
+            print(f"    Máxima: {stats.memory_usage_bytes_max / (1024**2):.2f} MB ({stats.memory_percent_max:.2f}%)")
+            print(f"  Rede:")
+            print(f"    RX: {stats.network_rx_bytes_total / (1024**2):.2f} MB")
+            print(f"    TX: {stats.network_tx_bytes_total / (1024**2):.2f} MB")
+            print(f"  Disco:")
+            print(f"    Read:  {stats.block_read_bytes_total / (1024**2):.2f} MB")
+            print(f"    Write: {stats.block_write_bytes_total / (1024**2):.2f} MB")
+            print(f"  Amostras coletadas: {stats.sample_count}")
         
         print("="*70)

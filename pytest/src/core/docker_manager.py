@@ -245,3 +245,105 @@ class DockerManager:
         except Exception as e:
             print(f"❌ Exceção ao matar {container_name}: {e}")
             return False
+    
+    @classmethod
+    def get_stats(cls, container_names: List[str], no_stream: bool = True) -> Optional[dict]:
+        """
+        Obtém estatísticas de containers
+        
+        Args:
+            container_names: Lista de nomes dos containers
+            no_stream: Se True, retorna apenas uma leitura
+            
+        Returns:
+            Dict com estatísticas parseadas ou None se erro
+        """
+        try:
+            cmd = ["docker", "stats", "--no-trunc", "--format", 
+                   "{{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}"]
+            
+            if no_stream:
+                cmd.append("--no-stream")
+            
+            cmd.extend(container_names)
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.returncode != 0:
+                return None
+            
+            # Parse output
+            stats = {}
+            for line in result.stdout.strip().split('\n'):
+                if not line:
+                    continue
+                    
+                parts = line.split('\t')
+                if len(parts) < 6:
+                    continue
+                
+                container = parts[0]
+                cpu_perc = parts[1].replace('%', '').strip()
+                mem_usage = parts[2].strip()  # e.g., "1.5GiB / 16GiB"
+                mem_perc = parts[3].replace('%', '').strip()
+                net_io = parts[4].strip()  # e.g., "1.2MB / 3.4MB"
+                block_io = parts[5].strip()  # e.g., "5.6MB / 7.8MB"
+                
+                stats[container] = {
+                    'cpu_percent': float(cpu_perc) if cpu_perc else 0.0,
+                    'memory_usage': mem_usage,
+                    'memory_percent': float(mem_perc) if mem_perc else 0.0,
+                    'network_io': net_io,
+                    'block_io': block_io
+                }
+            
+            return stats
+            
+        except Exception as e:
+            print(f"❌ Erro ao obter stats: {e}")
+            return None
+    
+    @classmethod
+    def parse_bytes(cls, value: str) -> float:
+        """
+        Parse valores de bytes (e.g., "1.5GiB", "256MB") para bytes
+        
+        Args:
+            value: String com valor e unidade
+            
+        Returns:
+            Valor em bytes
+        """
+        value = value.strip()
+        # Ordem importa! Unidades maiores primeiro para evitar match parcial
+        # Ex: "356.4MiB" deve fazer match com "MiB" antes de "B"
+        units = [
+            ('TiB', 1024**4),
+            ('GiB', 1024**3),
+            ('MiB', 1024**2),
+            ('KiB', 1024),
+            ('TB', 1000**4),
+            ('GB', 1000**3),
+            ('MB', 1000**2),
+            ('KB', 1000),
+            ('B', 1),
+        ]
+        
+        for unit, multiplier in units:
+            if value.endswith(unit):
+                try:
+                    num = float(value[:-len(unit)])
+                    return num * multiplier
+                except ValueError:
+                    return 0.0
+        
+        # Se não tem unidade, assume bytes
+        try:
+            return float(value)
+        except ValueError:
+            return 0.0

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Script para executar testes de performance baseline
+# Script para executar testes de performance do cluster
 #
 
 set -e
@@ -8,10 +8,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKER_DIR="$(cd "$SCRIPT_DIR/../docker" && pwd)"
 PYTEST_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+CLUSTER_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 VENV_DIR="$PYTEST_DIR/.venv"
 
 echo "======================================================================"
-echo "TESTE DE PERFORMANCE - BASELINE"
+echo "TESTE DE PERFORMANCE - CLUSTER COM PGPOOL"
 echo "======================================================================"
 
 # Função de cleanup
@@ -19,40 +20,54 @@ cleanup() {
     echo ""
     echo "🧹 Limpando ambiente..."
     cd "$DOCKER_DIR"
-    docker compose -f docker-compose.pgbench-baseline.yaml down 2>/dev/null || true
-    docker compose -f docker-compose.baseline.yaml down 2>/dev/null || true
+    docker compose -f docker-compose.pgbench-cluster.yaml down 2>/dev/null || true
+    cd "$CLUSTER_ROOT"
+    docker compose down 2>/dev/null || true
 }
 
 # Registra cleanup no exit
 trap cleanup EXIT
 
-# 1. Sobe o ambiente baseline (PostgreSQL + pgbench-client)
+# 1. Sobe o cluster completo (ETCD + Patroni + PgPool)
 echo ""
-echo "📦 [1/4] Subindo PostgreSQL baseline..."
-cd "$DOCKER_DIR"
-docker compose -f docker-compose.baseline.yaml up -d
+echo "📦 [1/4] Subindo cluster PostgreSQL HA (ETCD + Patroni + PgPool)..."
+cd "$CLUSTER_ROOT"
+docker compose up -d
 
-echo "⏳ Aguardando PostgreSQL ficar saudável..."
-timeout=60
+echo "⏳ Aguardando ETCD ficar saudável..."
+sleep 10
+
+echo "⏳ Aguardando cluster Patroni ficar saudável..."
+timeout=120
 elapsed=0
 while [ $elapsed -lt $timeout ]; do
-    if docker exec postgres-baseline pg_isready -U postgres >/dev/null 2>&1; then
-        echo "✓ PostgreSQL está pronto!"
+    # Verifica se pelo menos um nó Patroni está rodando
+    if docker exec patroni1 patronictl list 2>/dev/null | grep -q "running"; then
+        echo "✓ Cluster Patroni está rodando!"
         break
     fi
-    sleep 2
-    elapsed=$((elapsed + 2))
+    sleep 5
+    elapsed=$((elapsed + 5))
     echo -n "."
 done
 
 if [ $elapsed -ge $timeout ]; then
-    echo "❌ Timeout aguardando PostgreSQL"
+    echo "❌ Timeout aguardando cluster Patroni"
     exit 1
+fi
+
+echo "⏳ Aguardando PgPool ficar saudável..."
+sleep 10
+if docker exec pgpool pg_isready -h localhost -p 5432 -U postgres >/dev/null 2>&1; then
+    echo "✓ PgPool está pronto!"
+else
+    echo "⚠️  PgPool pode não estar completamente pronto, mas continuando..."
 fi
 
 echo ""
 echo "📦 [2/4] Subindo pgbench-client..."
-docker compose -f docker-compose.pgbench-baseline.yaml up -d
+cd "$DOCKER_DIR"
+docker compose -f docker-compose.pgbench-cluster.yaml up -d
 
 echo "⏳ Aguardando pgbench-client ficar pronto..."
 sleep 5
@@ -85,7 +100,7 @@ for i in {1..3}; do
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "🔄 ITERAÇÃO $i/3"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    pytest tests/performance/test_baseline_single_node.py -v -s
+    pytest tests/performance/test_cluster_with_pgpool.py -v -s
     
     if [ $? -ne 0 ]; then
         echo "❌ Falha na iteração $i"

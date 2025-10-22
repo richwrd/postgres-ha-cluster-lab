@@ -9,7 +9,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: '4.0'
           memory: 2G
     healthcheck:
       test: ["CMD-SHELL", "pg_isready --version"]

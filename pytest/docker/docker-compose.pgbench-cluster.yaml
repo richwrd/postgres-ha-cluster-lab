@@ -9,7 +9,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: '4.0'
           memory: 2G
     healthcheck:
       test: ["CMD-SHELL", "pg_isready --version"]
@@ -17,11 +17,11 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      # - pg-ha-network
-      - postgres-baseline-network
+      - pg-ha-network
+      # - postgres-baseline-network
 
 networks:
-  # pg-ha-network:
-  #   external: true
-  postgres-baseline-network:
+  pg-ha-network:
     external: true
+  # postgres-baseline-network:
+  #   external: true

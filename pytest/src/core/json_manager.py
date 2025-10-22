@@ -10,14 +10,21 @@ from typing import Any, Dict
 class JSONLWriter:
     """Escreve dados em formato JSONL (JSON Lines)"""
     
-    def __init__(self, output_dir: Path, prefix: str, run_id: str):
+    def __init__(self, output_dir: Path, prefix: str, run_id: str, subdirs: list = None):
         """
         Args:
-            output_dir: Diretório para salvar arquivos
+            output_dir: Diretório base para salvar arquivos
             prefix: Prefixo do arquivo (ex: 'rto', 'rpo', 'performance')
             run_id: ID único do run
+            subdirs: Lista de subdiretórios adicionais (ex: ['select_only', '10'])
         """
         self.output_dir = Path(output_dir)
+        
+        # Adiciona subdiretórios se fornecidos
+        if subdirs:
+            for subdir in subdirs:
+                self.output_dir = self.output_dir / str(subdir)
+        
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
