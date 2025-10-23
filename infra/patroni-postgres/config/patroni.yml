@@ -16,7 +16,7 @@ name: ${PATRONI_NAME}
 restapi:
   listen: "0.0.0.0:8008"
 
-  connect_address: ${PATRONI_RESTAPI_URL}
+  connect_address: ${PATRONI_RESTAPI_CONNECT_ADDRESS}
   authentication:
     username: ${PATRONI_RESTAPI_USERNAME}
     password: ${PATRONI_RESTAPI_PASSWORD}
@@ -94,8 +94,8 @@ bootstrap:
         # Ajustado para: 1 CPU / 4GB RAM por nó
         max_connections: 300                    # Aumentado para suportar burst via PgPool (200x4=800)
         max_locks_per_transaction: 64           # Padrão aumentado (32 pode ser insuficiente em cargas altas)
-        max_worker_processes: 8                 # Permite paralelismo em consultas complexas
-        max_parallel_workers: 8                 # Permite até 8 workers paralelos
+        max_worker_processes: 2                 # Permite paralelismo em consultas complexas
+        max_parallel_workers: 2                 # Permite até 2 workers paralelos
         max_prepared_transactions: 0            # Desabilitado (ajuste conforme necessário)
         track_commit_timestamp: off             # Desabilitado para reduzir overhead
 

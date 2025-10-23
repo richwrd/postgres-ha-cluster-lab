@@ -18,7 +18,7 @@ class ClusterConfig:
     
     # Carga
     THREADS = 4
-    DURATION = 60 #180
+    DURATION = 180
     SCALE = 2000  # (DEVE SER MAIOR QUE A QT DE RAM DO SISTEMA! SCALE 1 =~ 16MB)
 
 @pytest.mark.cluster_performance
