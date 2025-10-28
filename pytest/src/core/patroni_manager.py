@@ -157,3 +157,42 @@ class PatroniManager:
                 has_streaming_replica = True
         
         return has_leader and has_streaming_replica
+    
+    def switchover(self, target: Optional[str] = None, force: bool = False) -> bool:
+        """
+        Executa switchover controlado (troca de liderança)
+        
+        Simula manutenção programada onde a transição de liderança
+        é iniciada proativamente através do comando patronictl switchover.
+        
+        Args:
+            target: Nó específico para ser o novo primário (opcional)
+            force: Se True, força switchover sem confirmação
+            
+        Returns:
+            True se comando foi executado com sucesso
+        """
+        # Obtém nome do cluster do primeiro membro
+        members = self.get_cluster_members()
+        if not members:
+            return False
+        
+        cluster_name = members[0].get("Cluster", "pg-cluster")
+        
+        # Monta comando com nome do cluster
+        command = ["patronictl", "switchover", cluster_name]
+        
+        if force:
+            command.append("--force")
+        
+        if target:
+            command.extend(["--candidate", target])
+        
+        output = self._exec_on_available_node(command, timeout=30)
+        
+        if output is not None:
+            # Verifica se switchover foi bem sucedido
+            # Saída contém "Successfully switched over" quando sucesso
+            return "Successfully switched over" in output or "successfully" in output.lower()
+        
+        return False

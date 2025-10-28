@@ -28,7 +28,8 @@ class PerformanceCollector:
         threads: int = 4,
         duration: int = 60,
         workload: str = "select-only",
-        reconnect: bool = False
+        reconnect: bool = False,
+        prepared: bool = False
     ) -> PerformanceMetrics:
         """
         Executa teste de carga com pgbench
@@ -77,6 +78,10 @@ class PerformanceCollector:
         # Adiciona flag de reconexão se solicitado
         if reconnect:
             pgbench_cmd.append("-C")
+        
+        # Adiciona flag de prepared statements se solicitado
+        if prepared:
+            pgbench_cmd.extend(["-M", "prepared"])
         
         # Adiciona flag de workload
         if workload == "select-only":

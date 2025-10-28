@@ -131,7 +131,7 @@ class TestRPOPrimaryFailure:
                     print(f"    ⚠️  TX {i} falhou: {type(e).__name__}")
                     break
                 # Delay muito pequeno para simular carga contínua
-                await asyncio.sleep(0.01)  # 10ms entre transações
+                await asyncio.sleep(0.001)  # 1ms entre transações
             return count
         
         # Inicia escrita em background

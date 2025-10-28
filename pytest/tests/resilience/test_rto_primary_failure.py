@@ -52,6 +52,9 @@ class TestRTOPrimaryFailure:
         print("TESTE RTO - FALHA COMPLETA DO NÓ PRIMÁRIO (ASYNC)")
         print("="*70)
         
+        # Prepara PgPool (anexa nós DOWN se houver)
+        pgpool_manager.attach_down_nodes()
+        
         # 0. Inicia observação assíncrona
         print("\n[0/6] 🔍 Iniciando observação do cluster...")
         await rto_collector.start_observation()

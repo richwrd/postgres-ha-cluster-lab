@@ -23,7 +23,7 @@ generate_backend_config() {
             "# Config for node " + (.key|tostring) + ": " + .value.name + " (" + .value.role + " / state: " + .value.state + ")",
             "backend_hostname" + (.key|tostring) + " = " + .value.host,
             "backend_port" + (.key|tostring) + " = " + (.value.port|tostring),
-            "backend_weight" + (.key|tostring) + " = " + (if .value.role == "leader" then "1" else "1" end),
+            "backend_weight" + (.key|tostring) + " = " + (if .value.role == "leader" then "1" else "1" end), # Peso 0 para líder (não recebe conexões de leitura)
             "backend_data_directory" + (.key|tostring) + " = \u0027/var/lib/postgresql/data\u0027",
             "backend_flag" + (.key|tostring) + " = ALLOW_TO_FAILOVER",
             "backend_application_name" + (.key|tostring) + " = " + .value.name,

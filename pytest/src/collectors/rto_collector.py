@@ -36,7 +36,15 @@ class RTOCollector:
             self._observation_started = True
             # Aguarda estabilização inicial
             await asyncio.sleep(0.2)
-    
+            
+    async def start_observation_switchover(self):
+        """Inicia observação assíncrona do cluster"""
+        if not self._observation_started:
+            await self.observer.start_observing_switchover()
+            self._observation_started = True
+            # Aguarda estabilização inicial
+            await asyncio.sleep(0.2)
+             
     async def stop_observation(self):
         """Para observação do cluster"""
         if self._observation_started:

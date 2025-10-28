@@ -312,6 +312,173 @@ class TestPerformanceBaseline:
         assert metrics.total_transactions > 0
         print(f"\n✅ Baseline (mixed) com reconexão concluído ({client_count} clientes)")
     
+    @pytest.mark.baseline_select_only_prepared
+    @pytest.mark.parametrize("client_count", [10, 25, 50, 75, 100])
+    def test_baseline_select_only_prepared(
+        self,
+        client_count,
+        performance_collector,
+        performance_writer_baseline,
+        docker_stats_collector,
+        docker_stats_writer
+    ):
+        """
+        Teste de Performance (Baseline) - Leitura com Prepared Statements
+        
+        Cenário 1: PostgreSQL standalone
+        Carga: SELECT-only (leitura) com prepared statements
+        
+        Este teste avalia o uso de prepared statements (-M prepared), que pode
+        melhorar a performance ao reduzir o overhead de parsing e planejamento
+        de queries. Ideal para queries executadas repetidamente.
+        
+        Parâmetros pgbench:
+        - Clientes: parametrizado (10, 25, 50, 75, 100)
+        - Threads: 4
+        - Duração: 180s
+        - Workload: select-only
+        - Modo: prepared statements
+        """
+        print("\n" + "="*70)
+        print(f"TESTE DE PERFORMANCE - BASELINE (SELECT-ONLY + PREPARED) - {client_count} CLIENTES")
+        print("="*70)
+
+        print("\n[1/1] Inicializando database pgbench (32GB)...")
+        inicialized = self._initialize_database_once(performance_collector)
+
+        # Inicia coleta de Docker Stats
+        containers_to_monitor = ["postgres-baseline", "pgbench-client"]
+        stats_collector = docker_stats_collector(containers_to_monitor, interval=2.0)
+        stats_collector.start()
+
+        # Executa teste de carga com prepared statements
+        print("\n[2/2] Executando teste de carga com prepared statements...")
+        print(f"  Clientes: {client_count}, Threads: {self.THREADS}, Duração: {self.DURATION}s")
+        print(f"  Database: 32GB (scale={self.SCALE})")
+        print(f"  Workload: SELECT-only (leitura)")
+        print(f"  ✨ Modo: Prepared statements (-M prepared)")
+        
+        metrics = performance_collector.run_pgbench(
+            test_case=f"baseline_select_only_prepared_{client_count}clients",
+            scenario=self.SCENARIO,
+            container_name=self.CONTAINER_NAME,
+            host=self.HOST,
+            port=self.PORT,
+            user=self.USER,
+            password=self.PASSWORD,
+            database=self.DATABASE,
+            clients=client_count,
+            threads=self.THREADS,
+            duration=self.DURATION,
+            workload="select-only",
+            prepared=True  # Flag -M prepared
+        )
+        
+        # Para coleta de Docker Stats
+        stats_collector.stop()
+        docker_metrics = stats_collector.get_metrics(f"baseline_select_only_prepared_{client_count}clients")
+        
+        # Salva métricas
+        performance_writer_baseline.write(metrics)
+        docker_stats_writer.write(docker_metrics.to_dict())
+        
+        # Exibe resultados
+        self._print_performance_metrics(metrics)
+        self._print_docker_stats(docker_metrics)
+        
+        # Valida que teste executou
+        assert metrics.total_transactions > 0, "Nenhuma transação executada"
+        assert metrics.tps_total > 0, "TPS zerado"
+        
+        print(f"\n✅ Baseline (prepared) concluído ({client_count} clientes)")
+        print(f"   TPS: {metrics.tps_total:.2f}")
+        print(f"   Latência: {metrics.latency_avg:.2f}ms")
+        print(f"   ✨ Benefício de prepared statements esperado")
+    
+    @pytest.mark.baseline_mixed_workload_prepared
+    @pytest.mark.parametrize("client_count", [10, 25, 50, 75, 100])
+    def test_baseline_mixed_workload_prepared(
+        self,
+        client_count,
+        performance_collector,
+        performance_writer_baseline,
+        docker_stats_collector,
+        docker_stats_writer
+    ):
+        """
+        Teste de Performance (Baseline) - Workload Misto com Prepared Statements
+        
+        Cenário 1: PostgreSQL standalone
+        Carga: Mixed (leitura + escrita) com prepared statements
+        
+        Este teste avalia o uso de prepared statements em um workload misto
+        que inclui tanto leituras quanto escritas. Prepared statements podem
+        melhorar a performance ao reduzir o overhead de parsing e planejamento
+        para todas as operações (SELECT, UPDATE, INSERT).
+        
+        Parâmetros pgbench:
+        - Clientes: parametrizado (10, 25, 50, 75, 100)
+        - Threads: 4
+        - Duração: 180s
+        - Workload: mixed (SELECT, UPDATE, INSERT)
+        - Modo: prepared statements
+        """
+        print("\n" + "="*70)
+        print(f"TESTE DE PERFORMANCE - BASELINE (MIXED + PREPARED) - {client_count} CLIENTES")
+        print("="*70)
+        
+        print("\n[1/1] Inicializando database pgbench (32GB)...")
+        inicialized = self._initialize_database_once(performance_collector)
+        
+        # Inicia coleta de Docker Stats
+        containers_to_monitor = ["postgres-baseline", "pgbench-client"]
+        stats_collector = docker_stats_collector(containers_to_monitor, interval=2.0)
+        stats_collector.start()
+
+        # Executa teste de carga mista com prepared statements
+        print("\n[2/2] Executando teste de carga mista com prepared statements...")
+        print(f"  Clientes: {client_count}, Threads: {self.THREADS}, Duração: {self.DURATION}s")
+        print(f"  Database: 32GB (scale={self.SCALE})")
+        print(f"  Workload: Mixed (leitura + escrita)")
+        print(f"  ✨ Modo: Prepared statements (-M prepared)")
+        
+        metrics = performance_collector.run_pgbench(
+            test_case=f"baseline_mixed_prepared_{client_count}clients",
+            scenario=self.SCENARIO,
+            container_name=self.CONTAINER_NAME,
+            host=self.HOST,
+            port=self.PORT,
+            user=self.USER,
+            password=self.PASSWORD,
+            database=self.DATABASE,
+            clients=client_count,
+            threads=self.THREADS,
+            duration=self.DURATION,
+            workload="mixed",
+            prepared=True  # Flag -M prepared
+        )
+        
+        # Para coleta de Docker Stats
+        stats_collector.stop()
+        docker_metrics = stats_collector.get_metrics(f"baseline_mixed_prepared_{client_count}clients")
+        
+        # Salva métricas
+        performance_writer_baseline.write(metrics)
+        docker_stats_writer.write(docker_metrics.to_dict())
+        
+        # Exibe resultados
+        self._print_performance_metrics(metrics)
+        self._print_docker_stats(docker_metrics)
+        
+        # Valida que teste executou
+        assert metrics.total_transactions > 0, "Nenhuma transação executada"
+        assert metrics.tps_total > 0, "TPS zerado"
+        
+        print(f"\n✅ Baseline (mixed + prepared) concluído ({client_count} clientes)")
+        print(f"   TPS: {metrics.tps_total:.2f}")
+        print(f"   Latência: {metrics.latency_avg:.2f}ms")
+        print(f"   ✨ Benefício de prepared statements em workload misto")
+    
     def _print_performance_metrics(self, metrics):
         """Exibe métricas formatadas"""
         print("\n" + "="*70)

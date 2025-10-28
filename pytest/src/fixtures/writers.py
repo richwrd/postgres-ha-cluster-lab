@@ -54,10 +54,14 @@ def performance_writer_baseline(run_id, output_base_dir, request):
     # Detecta tipo de workload pelos marcadores
     if request.node.get_closest_marker("baseline_select_only_reconnect"):
         workload_type = "select_only_reconnect"
+    elif request.node.get_closest_marker("baseline_select_only_prepared"):
+        workload_type = "select_only_prepared"
     elif request.node.get_closest_marker("baseline_select_only"):
         workload_type = "select_only"
     elif request.node.get_closest_marker("baseline_mixed_workload_reconnect"):
         workload_type = "mixed_reconnect"
+    elif request.node.get_closest_marker("baseline_mixed_workload_prepared"):
+        workload_type = "mixed_prepared"
     elif request.node.get_closest_marker("baseline_mixed_workload"):
         workload_type = "mixed"
     
@@ -102,10 +106,14 @@ def performance_writer_cluster(run_id, output_base_dir, request):
     # Detecta tipo de workload pelos marcadores
     if request.node.get_closest_marker("cluster_select_only_reconnect"):
         workload_type = "select_only_reconnect"
+    elif request.node.get_closest_marker("cluster_select_only_prepared"):
+        workload_type = "select_only_prepared"
     elif request.node.get_closest_marker("cluster_select_only"):
         workload_type = "select_only"
     elif request.node.get_closest_marker("cluster_mixed_workload_reconnect"):
         workload_type = "mixed_reconnect"
+    elif request.node.get_closest_marker("cluster_mixed_workload_prepared"):
+        workload_type = "mixed_prepared"
     elif request.node.get_closest_marker("cluster_mixed_workload"):
         workload_type = "mixed"
     
@@ -167,19 +175,27 @@ def docker_stats_writer(run_id, output_base_dir, request):
         if sub_type == "baseline":
             if request.node.get_closest_marker("baseline_select_only_reconnect"):
                 workload_type = "select_only_reconnect"
+            elif request.node.get_closest_marker("baseline_select_only_prepared"):
+                workload_type = "select_only_prepared"
             elif request.node.get_closest_marker("baseline_select_only"):
                 workload_type = "select_only"
             elif request.node.get_closest_marker("baseline_mixed_workload_reconnect"):
                 workload_type = "mixed_reconnect"
+            elif request.node.get_closest_marker("baseline_mixed_workload_prepared"):
+                workload_type = "mixed_prepared"
             elif request.node.get_closest_marker("baseline_mixed_workload"):
                 workload_type = "mixed"
         elif sub_type == "cluster":
             if request.node.get_closest_marker("cluster_select_only_reconnect"):
                 workload_type = "select_only_reconnect"
+            elif request.node.get_closest_marker("cluster_select_only_prepared"):
+                workload_type = "select_only_prepared"
             elif request.node.get_closest_marker("cluster_select_only"):
                 workload_type = "select_only"
             elif request.node.get_closest_marker("cluster_mixed_workload_reconnect"):
                 workload_type = "mixed_reconnect"
+            elif request.node.get_closest_marker("cluster_mixed_workload_prepared"):
+                workload_type = "mixed_prepared"
             elif request.node.get_closest_marker("cluster_mixed_workload"):
                 workload_type = "mixed"
         

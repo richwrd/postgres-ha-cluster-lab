@@ -66,6 +66,7 @@ class ClusterObserver:
         
         self.cluster_failed: bool = False
         self.cluster_restored: bool = False
+        self.cluster_switchover: bool = False
     
     def on_event(self, event_type: str, callback: Callable):
         """
@@ -112,7 +113,27 @@ class ClusterObserver:
         self._tasks.append(task_3)
         
         await asyncio.sleep(0.5)  # Pequeno delay para estabilizar
+
+    async def start_observing_switchover(self):
+        """Inicia observação assíncrona rotacionando entre os nós"""
+        if self._observing:
+            return
         
+        print(f"🔍 Iniciando observação de {len(self.nodes)} nós (poll: {self.poll_interval*1000:.0f}ms)")
+        
+        self._observing = True
+        self.events.clear()
+        
+        self.old_primary = self.patroni.get_primary_node()
+        
+        task_1 = asyncio.create_task(self._detect_cluster_new_primary())
+        self._tasks.append(task_1)
+        
+        task_3 = asyncio.create_task(self._detect_service_restoration_switchover())
+        self._tasks.append(task_3)
+        
+        await asyncio.sleep(0.5)  # Pequeno delay para estabilizar
+
         
     async def stop_observing(self):
         """Para observação"""
@@ -248,6 +269,36 @@ class ClusterObserver:
         while self._observing:
             try:
                 if self.cluster_restored:
+                    
+                    if not self.cluster_switchover:
+                    
+                        if self.postgres.is_available():
+                            event = ClusterEvent(
+                                event_type='service_restored',
+                                node='pgpool',
+                                timestamp=time.time(),
+                                data=None
+                            )
+                            self._emit_event(event)
+                            print(f"✅ Serviço PostgreSQL restaurado e disponível via pgpool")
+                            
+                            self.cluster_switchover = True
+                            
+            except Exception as e:
+                print(f"⚠️  Erro ao detectar restauração do serviço: {e}")
+            
+            await asyncio.sleep(self.poll_interval)
+
+
+    async def _detect_service_restoration_switchover(self):
+        """
+        Detecta restauração do serviço PostgreSQL via pgpool
+        """
+        print(f"🔍 Detectando restauração do serviço PostgreSQL...")
+        
+        while self._observing:
+            try:
+                if self.cluster_restored:
                 
                     if self.postgres.is_available():
                         event = ClusterEvent(
@@ -263,3 +314,39 @@ class ClusterObserver:
                 print(f"⚠️  Erro ao detectar restauração do serviço: {e}")
             
             await asyncio.sleep(self.poll_interval)
+    
+    async def _detect_cluster_new_primary(self):
+        """
+        Detecta mudança de primário no cluster
+        Identifica quando o primário atual é diferente do primário anterior
+        """
+        print(f"🔍 Detectando mudança de primário no cluster...")
+        
+        while self._observing:
+            try:
+                current_primary = self.patroni.get_primary_node()
+                
+                if not self.cluster_switchover:
+                
+                    if current_primary and current_primary != self.old_primary:
+                        event = ClusterEvent(
+                            event_type='new_primary',
+                            node=current_primary,
+                            timestamp=time.time(),
+                            data={
+                                'old_primary': self.old_primary,
+                                'new_primary': current_primary
+                            }
+                        )
+                        self.cluster_switchover = True
+                        self._emit_event(event)
+                        print(f"✅ Novo primário detectado: {current_primary} (anterior: {self.old_primary})")
+                        
+                        self.new_primary = current_primary
+                        self.cluster_restored = True
+                            
+            except Exception as e:
+                print(f"⚠️  Erro ao detectar mudança de primário: {e}")
+            
+            await asyncio.sleep(self.poll_interval)
+

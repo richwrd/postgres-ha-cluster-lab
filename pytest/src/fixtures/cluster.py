@@ -45,3 +45,17 @@ def get_replica_nodes(patroni_manager):
     return lambda: patroni_manager.get_replica_nodes()
 
 
+@pytest.fixture
+def patroni_switchover(patroni_manager):
+    """
+    Retorna função para executar switchover controlado
+    
+    Usage:
+        patroni_switchover()  # Patroni escolhe melhor réplica
+        patroni_switchover(target='patroni2')  # Target específico
+    """
+    def _switchover(target=None, force=True):
+        return patroni_manager.switchover(target=target, force=force)
+    return _switchover
+
+
