@@ -98,7 +98,7 @@ class TestPerformanceCluster:
         return True
     
     @pytest.mark.cluster_select_only
-    @pytest.mark.parametrize("client_count", [10, 25, 50, 75, 100])
+    @pytest.mark.parametrize("client_count", [10, 25, 50, 75, 100, 125, 150, 175, 200])
     def test_cluster_select_only(
         self,
         client_count,
