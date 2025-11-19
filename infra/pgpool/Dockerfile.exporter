@@ -1,0 +1,24 @@
+FROM debian:bullseye-slim
+
+# Instalar apenas CA certificates para HTTPS
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Baixar e extrair o binário ARM64 diretamente
+RUN wget -qO- https://github.com/pgpool/pgpool2_exporter/releases/download/v1.2.2/pgpool2_exporter-1.2.2.linux-arm64.tar.gz | \
+    tar -xzv -C /usr/local/bin/ --strip-components=1 pgpool2_exporter-1.2.2.linux-arm64/pgpool2_exporter && \
+    chmod +x /usr/local/bin/pgpool2_exporter
+
+# Criar usuário não-privilegiado
+RUN useradd -r -s /bin/false -d /home/pgpool_exporter pgpool_exporter && \
+    mkdir -p /home/pgpool_exporter && \
+    chown -R pgpool_exporter:pgpool_exporter /home/pgpool_exporter
+
+WORKDIR /home/pgpool_exporter
+USER pgpool_exporter
+
+EXPOSE 9719
+
+CMD ["pgpool2_exporter"]

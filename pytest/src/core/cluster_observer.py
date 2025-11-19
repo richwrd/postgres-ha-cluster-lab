@@ -260,7 +260,7 @@ class ClusterObserver:
             
             await asyncio.sleep(self.poll_interval)
         
-    async def _detect_service_restoration(self):
+    async def _detect_service_restoration_switchover(self):
         """
         Detecta restauração do serviço PostgreSQL via pgpool
         """
@@ -290,7 +290,7 @@ class ClusterObserver:
             await asyncio.sleep(self.poll_interval)
 
 
-    async def _detect_service_restoration_switchover(self):
+    async def _detect_service_restoration(self):
         """
         Detecta restauração do serviço PostgreSQL via pgpool
         """

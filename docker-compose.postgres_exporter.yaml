@@ -1,0 +1,68 @@
+# ═══════════════════════════════════════════════════════════════════
+# Cluster PostgreSQL com Patroni para Alta Disponibilidade (HA)
+# Autor: Eduardo Richard
+# Versão: v2.0 (2025)
+# ═══════════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════════════
+# ÂNCORAS YAML (Templates Reutilizáveis)
+# ═══════════════════════════════════════════════════════════════════
+
+x-exporter-common: &exporter-common
+  image: prometheuscommunity/postgres-exporter:latest
+  networks:
+    - pg-ha-network
+  env_file:
+    - ./infra/patroni-postgres/config/.patroni.env
+  healthcheck:
+    test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9187/metrics || exit 1"]
+    interval: 15s
+    timeout: 5s
+    retries: 3
+    start_period: 10s
+  deploy:
+    resources:
+      limits:
+        cpus: '0.2'
+        memory: 128M
+
+# ═══════════════════════════════════════════════════════════════════
+# Postgres Exporters para Prometheus
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  patroni-postgres-1-exporter:
+    <<: *exporter-common
+    container_name: patroni-postgres-1-exporter
+    hostname: patroni-postgres-1-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${EXPORTERS_USERNAME}:${EXPORTERS_PASSWORD}@${PATRONI1_NAME}:5432/postgres?sslmode=disable"
+    ports:
+      - "${PG1_EXPORTER_PORT}:9187"
+    depends_on:
+      patroni-postgres-1:
+        condition: service_healthy
+
+  patroni-postgres-2-exporter:
+    <<: *exporter-common
+    container_name: patroni-postgres-2-exporter
+    hostname: patroni-postgres-2-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${EXPORTERS_USERNAME}:${EXPORTERS_PASSWORD}@${PATRONI2_NAME}:5432/postgres?sslmode=disable"
+    ports:
+      - "${PG2_EXPORTER_PORT}:9187"
+    depends_on:
+      patroni-postgres-2:
+        condition: service_healthy
+
+  patroni-postgres-3-exporter:
+    <<: *exporter-common
+    container_name: patroni-postgres-3-exporter
+    hostname: patroni-postgres-3-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${EXPORTERS_USERNAME}:${EXPORTERS_PASSWORD}@${PATRONI3_NAME}:5432/postgres?sslmode=disable"
+    ports:
+      - "${PG3_EXPORTER_PORT}:9187"
+    depends_on:
+      patroni-postgres-3:
+        condition: service_healthy

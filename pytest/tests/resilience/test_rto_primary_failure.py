@@ -20,8 +20,13 @@ from src.core.config import config
 class TestRTOPrimaryFailure:
     
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "save_metrics",
+        [True, False]
+    )
     async def test_primary_node_complete_failure(
         self,
+        save_metrics,
         rto_collector,
         rto_writer,
         cluster_healthy,
@@ -111,8 +116,12 @@ class TestRTOPrimaryFailure:
         metrics = rto_collector.get_metrics()
         assert metrics, "Métricas não foram coletadas"
         
-        # Salva resultados
-        rto_writer.write(metrics)
+        # Salva resultados (se habilitado)
+        if save_metrics:
+            rto_writer.write(metrics)
+            print("💾 Métricas salvas em arquivo")
+        else:
+            print("⏭️  Métricas NÃO foram salvas (save_metrics=False)")
         
         # Exibe resultados
         self._print_rto_metrics(metrics)

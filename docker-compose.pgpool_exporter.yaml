@@ -1,0 +1,39 @@
+# ═══════════════════════════════════════════════════════════════════
+# Docker Compose para Pgpool2 Exporter (Prometheus Metrics)
+# Autor: Eduardo Richard
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  pgpool2_exporter:
+    # image: pgpool/pgpool2_exporter:latest (architecture issue on ARM64, does not support build)
+    image: pgpool2_exporter:latest
+    container_name: pgpool2_exporter
+    hostname: pgpool2_exporter
+    
+    build:
+      context: ./infra/pgpool
+      dockerfile: Dockerfile.exporter
+
+    restart: unless-stopped
+    
+    networks:
+      - pg-ha-network
+
+    depends_on:
+      pgpool:
+        condition: service_healthy
+    
+    environment:
+      DATA_SOURCE_URI: "${PGPOOL_NAME:-pgpool}:${PGPOOL_HOST_PORT:-9999}/postgres?sslmode=disable"
+      DATA_SOURCE_USER: "${EXPORTERS_USERNAME:-postgres}"
+      DATA_SOURCE_PASS: "${EXPORTERS_PASSWORD}"
+    
+    ports:
+      - "${PGPOOL_EXPORTER_PORT}:9719"
+    
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9719/metrics || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
