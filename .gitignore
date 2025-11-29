@@ -1,7 +1,6 @@
 .env
 .patroni.env
 .pgpool.env
-/docs
 
 # Ignore Python artifacts
 __pycache__/

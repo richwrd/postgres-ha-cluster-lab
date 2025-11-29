@@ -143,7 +143,7 @@ class TestRTOPrimaryFailure:
         pgpool_manager.attach_down_nodes()
         
         # Aguarda estabilização (pode usar um pouco de tempo aqui, não é medido)
-        await asyncio.sleep(5)
+        await asyncio.sleep(60)
         print("✓ Cleanup concluído")
 
     

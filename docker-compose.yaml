@@ -27,8 +27,8 @@ include:
   - docker-compose.etcd.yaml
   - docker-compose.patroni.yaml
   - docker-compose.pgpool.yaml
-  - docker-compose.postgres_exporter.yaml
-  - docker-compose.pgpool_exporter.yaml
+  # - docker-compose.postgres_exporter.yaml
+  # - docker-compose.pgpool_exporter.yaml
 
 # ═══════════════════════════════════════════════════════════════════
 # VOLUMES COMPARTILHADOS
