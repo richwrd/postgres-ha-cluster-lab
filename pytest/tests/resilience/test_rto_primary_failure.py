@@ -134,6 +134,9 @@ class TestRTOPrimaryFailure:
         
         # Cleanup: reinicia o container e re-anexa o nó ao PgPool via PCP
         print(f"\n[Cleanup] 🔄 Reiniciando {initial_primary}...")
+        
+        await asyncio.sleep(5)
+        
         docker.start_container(initial_primary)
 
         # Aguarda container subir
@@ -142,8 +145,6 @@ class TestRTOPrimaryFailure:
         # Re-anexa nós ao PgPool
         pgpool_manager.attach_down_nodes()
         
-        # Aguarda estabilização (pode usar um pouco de tempo aqui, não é medido)
-        await asyncio.sleep(60)
         print("✓ Cleanup concluído")
 
     
