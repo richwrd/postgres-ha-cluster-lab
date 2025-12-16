@@ -8,3 +8,6 @@ __pycache__/
 .pytest_cache/
 
 *.log
+
+/docs/new
+/docs/old
